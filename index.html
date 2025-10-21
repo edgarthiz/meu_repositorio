@@ -3,73 +3,158 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitor de Temperatura - ESP32</title>
+  <title>Monitor IoT - ESP32 Temperatura</title>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f4f6f8;
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
       color: #333;
       text-align: center;
-      margin-top: 80px;
+      margin: 0;
+      padding: 0;
     }
-    .card {
-      display: inline-block;
+    header {
+      background: #007BFF;
+      color: white;
+      padding: 20px;
+      font-size: 1.5em;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .container {
+      margin: 20px auto;
+      max-width: 600px;
       background: white;
-      padding: 30px;
+      padding: 20px;
       border-radius: 15px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     .temp {
       font-size: 3em;
       color: #007BFF;
+      margin-bottom: 10px;
+    }
+    .status {
+      font-size: 1em;
+      margin-top: 10px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+    .online {
+      background: #28a745;
+      color: white;
+    }
+    .offline {
+      background: #dc3545;
+      color: white;
+    }
+    footer {
+      font-size: 0.9em;
+      color: #777;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h2>🌡️ Monitor de Temperatura - ESP32</h2>
-  <div class="card">
-    <h3>Temperatura Atual:</h3>
+  <header>🌡️ Monitor de Temperatura - ESP32</header>
+
+  <div class="container">
     <div class="temp" id="temp">-- °C</div>
-    <p id="status">Conectando ao broker MQTT...</p>
+    <div>Última atualização: <span id="lastUpdate">--</span></div>
+    <div id="status" class="status offline">Desconectado</div>
+
+    <canvas id="tempChart" style="margin-top:20px; width:100%; height:300px;"></canvas>
   </div>
+
+  <footer>Dados recebidos via HiveMQ Cloud MQTT</footer>
 
   <script>
     // ===== CONFIGURAÇÃO MQTT =====
     const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
     const options = {
-     // username: "SEU_USUARIO_HIVEMQ",
-     // password: "SUA_SENHA_HIVEMQ",
       username: "edgar_thiz",
       password: "Rg_1065736711@@",
       clean: true,
       connectTimeout: 4000,
-      reconnectPeriod: 2000,
+      reconnectPeriod: 3000,
     };
-
     const topic = "esp32/temperatura";
 
     const client = mqtt.connect(broker, options);
 
+    // ===== ELEMENTOS HTML =====
     const tempEl = document.getElementById("temp");
     const statusEl = document.getElementById("status");
+    const lastUpdateEl = document.getElementById("lastUpdate");
 
+    // ===== CONFIGURAÇÃO DO GRÁFICO =====
+    const ctx = document.getElementById("tempChart").getContext("2d");
+    const chartData = {
+      labels: [],
+      datasets: [{
+        label: "Temperatura (°C)",
+        data: [],
+        borderColor: "#007BFF",
+        backgroundColor: "rgba(0,123,255,0.1)",
+        borderWidth: 2,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: "#007BFF"
+      }]
+    };
+    const tempChart = new Chart(ctx, {
+      type: "line",
+      data: chartData,
+      options: {
+        scales: {
+          x: { title: { display: true, text: "Horário" } },
+          y: { title: { display: true, text: "°C" }, beginAtZero: false }
+        }
+      }
+    });
+
+    // ===== EVENTOS MQTT =====
     client.on("connect", () => {
-      statusEl.innerText = "✅ Conectado ao HiveMQ Cloud";
+      console.log("Conectado ao HiveMQ Cloud");
+      statusEl.classList.remove("offline");
+      statusEl.classList.add("online");
+      statusEl.textContent = "Conectado";
       client.subscribe(topic, (err) => {
-        if (!err) console.log("Inscrito no tópico:", topic);
+        if (!err) console.log("Inscrito em:", topic);
       });
     });
 
-    client.on("message", (topic, message) => {
-      const valor = message.toString();
-      tempEl.innerText = `${valor} °C`;
+    client.on("reconnect", () => {
+      console.log("Reconectando...");
+      statusEl.textContent = "Reconectando...";
+      statusEl.classList.remove("online");
+      statusEl.classList.add("offline");
     });
 
-    client.on("reconnect", () => (statusEl.innerText = "Reconectando..."));
     client.on("error", (err) => {
-      statusEl.innerText = "Erro: " + err.message;
       console.error("Erro MQTT:", err);
+      statusEl.textContent = "Erro de conexão";
+      statusEl.classList.remove("online");
+      statusEl.classList.add("offline");
+    });
+
+    client.on("message", (topic, message) => {
+      const valor = parseFloat(message.toString()).toFixed(2);
+      tempEl.innerText = `${valor} °C`;
+      const hora = new Date().toLocaleTimeString("pt-BR");
+      lastUpdateEl.innerText = hora;
+
+      // Atualiza gráfico
+      chartData.labels.push(hora);
+      chartData.datasets[0].data.push(valor);
+      if (chartData.labels.length > 20) { // mantém últimas 20 leituras
+        chartData.labels.shift();
+        chartData.datasets[0].data.shift();
+      }
+      tempChart.update();
     });
   </script>
 </body>
