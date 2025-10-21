@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monitor de Temperatura - ESP32</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #333;
+      text-align: center;
+      margin-top: 80px;
+    }
+    .card {
+      display: inline-block;
+      background: white;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .temp {
+      font-size: 3em;
+      color: #007BFF;
+    }
+  </style>
+</head>
+<body>
+  <h2>🌡️ Monitor de Temperatura - ESP32</h2>
+  <div class="card">
+    <h3>Temperatura Atual:</h3>
+    <div class="temp" id="temp">-- °C</div>
+    <p id="status">Conectando ao broker MQTT...</p>
+  </div>
+
+  <script>
+    // ===== CONFIGURAÇÃO MQTT =====
+    const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
+    const options = {
+     // username: "SEU_USUARIO_HIVEMQ",
+     // password: "SUA_SENHA_HIVEMQ",
+      username: "edgar_thiz",
+      password: "Rg_1065736711@@",
+      clean: true,
+      connectTimeout: 4000,
+      reconnectPeriod: 2000,
+    };
+
+    const topic = "esp32/temperatura";
+
+    const client = mqtt.connect(broker, options);
+
+    const tempEl = document.getElementById("temp");
+    const statusEl = document.getElementById("status");
+
+    client.on("connect", () => {
+      statusEl.innerText = "✅ Conectado ao HiveMQ Cloud";
+      client.subscribe(topic, (err) => {
+        if (!err) console.log("Inscrito no tópico:", topic);
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      const valor = message.toString();
+      tempEl.innerText = `${valor} °C`;
+    });
+
+    client.on("reconnect", () => (statusEl.innerText = "Reconectando..."));
+    client.on("error", (err) => {
+      statusEl.innerText = "Erro: " + err.message;
+      console.error("Erro MQTT:", err);
+    });
+  </script>
+</body>
+</html>
