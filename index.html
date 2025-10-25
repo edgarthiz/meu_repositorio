@@ -214,7 +214,8 @@
       const now = new Date().toLocaleTimeString("pt-BR");
       lastUpdateEl.innerText = now;
 
-      const tempValue = parseFloat(dados.temp).toFixed(2) + ' °C';
+//    const tempValue = parseFloat(dados.temp).toFixed(2) + ' °C';
+      const tempValue = parseFloat(dados.temperatura).toFixed(2) + ' °C';
       if (previousValues.temp !== tempValue) {
         ledButtons.temp.innerText = tempValue;
         previousValues.temp = tempValue;
@@ -232,7 +233,9 @@
 
       // Atualiza gráfico temperatura (últimas 10 leituras)
       chartData.labels.push(now);
-      chartData.datasets[0].data.push(parseFloat(dados.temp));
+    //chartData.datasets[0].data.push(parseFloat(dados.temp));
+      chartData.datasets[0].data.push(parseFloat(dados.temperatura));
+
       if (chartData.labels.length > 10) {
         chartData.labels.shift();
         chartData.datasets[0].data.shift();
@@ -240,7 +243,9 @@
       tempChart.update();
 
       // ALERTA VISUAL E SONORO COM PISCAR LEDS
-      if (parseFloat(dados.temp) > 50) {
+      //if (parseFloat(dados.temp) > 50) {
+        if (parseFloat(dados.temperatura) > 50) {
+
         tempPanel.classList.add("alert");
         if (sirene.paused) sirene.play();
 
