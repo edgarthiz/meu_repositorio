@@ -34,7 +34,7 @@ h1{
   display:flex;
   flex-wrap:wrap;
   justify-content:space-evenly;
-  align-items:center; /* corrigido */
+  align-items:center;
   gap:16px;
   margin-bottom:28px;
 }
@@ -72,12 +72,19 @@ h1{
 .status{
   text-align:center;
   margin-top:20px;
-  padding:10px;
+  padding:6px 12px;
   border-radius:10px;
   font-weight:bold;
+  display:inline-block;
 }
 .status.connected{background:#28a745;}
 .status.disconnected{background:#dc3545;}
+.status-buttons{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+}
 canvas{
   width:100%!important;
   max-height:320px;
@@ -88,6 +95,17 @@ canvas{
 @keyframes piscar{
   from{color:#fff;}
   to{color:#ff0000;}
+}
+button{
+  padding:6px 12px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:bold;
+}
+button.silenciar{
+  background:#007bff;
+  color:#fff;
 }
 </style>
 </head>
@@ -123,9 +141,12 @@ canvas{
     <p>Última leitura: <span id="temp">--</span> °C</p>
     <p>Última atualização: <span id="hora">--:--:--</span></p>
     <canvas id="grafico"></canvas>
+    <div class="status-buttons">
+      <div class="status disconnected" id="status">Desconectado</div>
+      <button class="silenciar" id="btnSilenciar">Silenciar Alarme</button>
+    </div>
+    <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
   </div>
-
-  <div class="status disconnected" id="status">Desconectado</div>
 </div>
 
 <script>
@@ -147,6 +168,8 @@ const leds = {azul:s("azul"),verde:s("verde"),vermelho:s("vermelho"),invalido:s(
 const statusDiv = s("status");
 const tempSpan = s("temp");
 const horaSpan = s("hora");
+const btnSilenciar = s("btnSilenciar");
+const alarme = s("alarme");
 
 // ===== GRÁFICO =====
 const ctx = document.getElementById("grafico").getContext("2d");
@@ -158,21 +181,33 @@ const grafico = new Chart(ctx,{
     responsive:true,
     maintainAspectRatio:false,
     scales:{
-      x:{
-        ticks:{color:"#ddd"},
-        grid:{color:"rgba(255,255,255,0.1)"}
-      },
-      y:{
-        min:0,
-        suggestedMax:60,
-        ticks:{color:"#ddd"},
-        grid:{color:"rgba(255,255,255,0.1)"},
-        title:{display:true,text:"Temperatura (°C)",color:"#bbb"}
-      }
+      x:{ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"}},
+      y:{min:0,suggestedMax:60,ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"},title:{display:true,text:"Temperatura (°C)",color:"#bbb"}}
     },
     plugins:{legend:{labels:{color:"#f2c200"}}}
   }
 });
+
+// ===== ALERTA =====
+let alarmeAtivo = false;
+let silenciar = false;
+function dispararAlarme(){
+  if(!silenciar && !alarmeAtivo){
+    alarme.play();
+    tempSpan.classList.add("alerta");
+    alarmeAtivo = true;
+  }
+}
+function pararAlarme(){
+  alarme.pause();
+  alarme.currentTime = 0;
+  tempSpan.classList.remove("alerta");
+  alarmeAtivo = false;
+}
+btnSilenciar.onclick = ()=>{
+  silenciar = true;
+  pararAlarme();
+}
 
 // ===== FUNÇÕES =====
 client.on("connect",()=>{
@@ -197,7 +232,13 @@ client.on("message",(t,p)=>{
   }
 });
 
+// Atualização a cada 5 segundos
+let ultimaAtualizacao = 0;
 function atualizarDados(d){
+  const agora = Date.now();
+  if(agora - ultimaAtualizacao < 5000) return; // 5s
+  ultimaAtualizacao = agora;
+
   // atualiza contadores
   leds.azul.textContent=d.azul??0;
   leds.verde.textContent=d.verde??0;
@@ -208,28 +249,22 @@ function atualizarDados(d){
   // temperatura
   const temp = d.temperatura??0;
   tempSpan.textContent=temp.toFixed(2);
-  const agora = new Date();
-  const label = agora.toLocaleTimeString("pt-BR",{hour12:false});
+  const label = new Date().toLocaleTimeString("pt-BR",{hour12:false});
   horaSpan.textContent=label;
 
-  // evita labels duplicados
+  // mantém 10 amostras
   if(chartData.labels.length>0 && chartData.labels[chartData.labels.length-1]===label) return;
   chartData.labels.push(label);
   chartData.datasets[0].data.push(temp);
-
-  // mantém 10 amostras
   if(chartData.labels.length>10){
     chartData.labels.shift();
     chartData.datasets[0].data.shift();
   }
   grafico.update();
 
-  // alerta visual
-  if(d.alerta){
-    tempSpan.classList.add("alerta");
-  }else{
-    tempSpan.classList.remove("alerta");
-  }
+  // alerta
+  if(temp >= 50) dispararAlarme();
+  else pararAlarme();
 }
 </script>
 </body>
