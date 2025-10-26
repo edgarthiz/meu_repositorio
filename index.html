@@ -71,7 +71,6 @@ h1{
 }
 .status{
   text-align:center;
-  margin-top:20px;
   padding:6px 12px;
   border-radius:10px;
   font-weight:bold;
@@ -191,25 +190,43 @@ const grafico = new Chart(ctx,{
 // ===== ALERTA =====
 let alarmeAtivo = false;
 let silenciar = false;
+
+// Ativa som do alarme apenas após interação do usuário
+let somAtivo = false;
+document.body.addEventListener("click",()=>{ somAtivo = true; },{once:true});
+
+function atualizarCorGrafico(temp){
+  if(temp >= 50){
+    grafico.data.datasets[0].borderColor = "#ff0000";
+    grafico.data.datasets[0].backgroundColor = "rgba(255,0,0,0.2)";
+  } else {
+    grafico.data.datasets[0].borderColor = "#f2c200";
+    grafico.data.datasets[0].backgroundColor = "rgba(242,194,0,0.2)";
+  }
+  grafico.update();
+}
+
 function dispararAlarme(){
   if(!silenciar && !alarmeAtivo){
-    alarme.play();
+    if(somAtivo) alarme.play().catch(()=>console.log("Autoplay bloqueado"));
     tempSpan.classList.add("alerta");
     alarmeAtivo = true;
   }
 }
+
 function pararAlarme(){
   alarme.pause();
   alarme.currentTime = 0;
   tempSpan.classList.remove("alerta");
   alarmeAtivo = false;
 }
+
 btnSilenciar.onclick = ()=>{
   silenciar = true;
   pararAlarme();
 }
 
-// ===== FUNÇÕES =====
+// ===== FUNÇÕES MQTT =====
 client.on("connect",()=>{
   statusDiv.textContent="Conectado";
   statusDiv.className="status connected";
@@ -232,11 +249,11 @@ client.on("message",(t,p)=>{
   }
 });
 
-// Atualização a cada 5 segundos
+// ===== ATUALIZAÇÃO DE DADOS A CADA 5 SEG =====
 let ultimaAtualizacao = 0;
 function atualizarDados(d){
   const agora = Date.now();
-  if(agora - ultimaAtualizacao < 5000) return; // 5s
+  if(agora - ultimaAtualizacao < 5000) return;
   ultimaAtualizacao = agora;
 
   // atualiza contadores
@@ -252,15 +269,18 @@ function atualizarDados(d){
   const label = new Date().toLocaleTimeString("pt-BR",{hour12:false});
   horaSpan.textContent=label;
 
+  atualizarCorGrafico(temp);
+
   // mantém 10 amostras
-  if(chartData.labels.length>0 && chartData.labels[chartData.labels.length-1]===label) return;
-  chartData.labels.push(label);
-  chartData.datasets[0].data.push(temp);
-  if(chartData.labels.length>10){
-    chartData.labels.shift();
-    chartData.datasets[0].data.shift();
+  if(chartData.labels.length===0 || chartData.labels[chartData.labels.length-1]!==label){
+    chartData.labels.push(label);
+    chartData.datasets[0].data.push(temp);
+    if(chartData.labels.length>10){
+      chartData.labels.shift();
+      chartData.datasets[0].data.shift();
+    }
+    grafico.update();
   }
-  grafico.update();
 
   // alerta
   if(temp >= 50) dispararAlarme();
