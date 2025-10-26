@@ -1,115 +1,48 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Painel Industrial Smart Esteira - ESP32</title>
+
+  <!-- MQTT + Chart.js -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
-    body {
-      font-family: "Segoe UI", Roboto, sans-serif;
-      background: #1b1b1b;
-      color: #eee;
-      margin: 0;
-      padding: 0;
-      text-align: center;
+    /* --- estilo industrial escuro --- */
+    :root {
+      --bg: #1b1b1b;
+      --panel: #2b2b2b;
+      --muted: #aaa;
+      --accent: #ffc107;
     }
-    header {
-      background: #0d6efd;
-      color: white;
-      padding: 20px;
-      font-size: 1.8em;
-      font-weight: bold;
-      box-shadow: 0 3px 5px rgba(0,0,0,0.3);
-    }
-    .container {
-      margin: 20px auto;
-      max-width: 900px;
-      background: #2b2b2b;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
-    }
-    .led-panel {
-      display: flex;
-      justify-content: space-around;
-      flex-wrap: wrap;
-      margin-bottom: 30px;
-    }
-    .led-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 10px;
-    }
-    .led-label {
-      margin-bottom: 8px;
-      font-size: 0.9em;
-      color: #ccc;
-    }
-    .led-circle {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 1.6em;
-      font-weight: bold;
-      color: white;
-      box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-      transition: transform 0.3s, opacity 0.3s, box-shadow 0.3s;
-    }
-    .led-circle.changed {
-      transform: scale(1.15);
-      opacity: 0.8;
-    }
-    .led-circle.flash {
-      box-shadow: 0 0 20px 8px #ffc107;
-    }
-    #led-azul { background: #007BFF; }
-    #led-verde { background: #28a745; }
-    #led-vermelho { background: #dc3545; }
-    #led-invalido { background: #000000; }
-    #led-total { background: #6c757d; }
-
-    .status {
-      font-size: 1em;
-      margin-top: 10px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      display: inline-block;
-    }
-    .online { background: #28a745; color: white; }
-    .offline { background: #dc3545; color: white; }
-
-    .temp-panel {
-      background: #1a1a1a;
-      padding: 20px;
-      border-radius: 15px;
-      margin-bottom: 20px;
-      transition: background-color 0.5s;
-    }
-    .temp-panel.alert {
-      background-color: #dc3545;
-      animation: blink 1s infinite;
-    }
-    @keyframes blink {
-      0%, 50%, 100% { opacity: 1; }
-      25%, 75% { opacity: 0.5; }
-    }
-    .temp-panel h2 {
-      margin: 0 0 10px 0;
-      color: #ffc107;
-    }
-    canvas { background: #1a1a1a; border-radius: 10px; }
-
-    footer {
-      font-size: 0.9em;
-      color: #aaa;
-      margin-top: 20px;
-    }
+    html,body{height:100%;margin:0;font-family:"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:#eee}
+    header{background:#0d6efd;color:#fff;padding:18px 22px;font-size:1.6rem;font-weight:700;box-shadow:0 3px 6px rgba(0,0,0,0.4)}
+    .container{max-width:980px;margin:22px auto;background:var(--panel);padding:26px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+    .led-panel{display:flex;justify-content:space-around;flex-wrap:wrap;margin-bottom:26px;gap:8px}
+    .led-item{display:flex;flex-direction:column;align-items:center;width:140px}
+    .led-label{font-size:0.9rem;color:#cfcfcf;margin-bottom:8px}
+    .led-circle{width:110px;height:110px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;box-shadow:0 6px 12px rgba(0,0,0,0.6);transition:transform .22s,box-shadow .22s,opacity .22s}
+    .led-circle.changed{transform:scale(1.08);opacity:.95}
+    .led-circle.flash{box-shadow:0 0 28px 8px rgba(255,215,0,0.15);transform:scale(1.12)}
+    #led-azul{background:#007BFF}
+    #led-verde{background:#28a745}
+    #led-vermelho{background:#dc3545}
+    #led-invalido{background:#000}
+    #led-total{background:#6c757d}
+    .temp-panel{background:#1a1a1a;padding:20px;border-radius:12px;margin-bottom:8px;transition:background-color .3s}
+    .temp-panel.alert{background:#dc3545;animation:blink .9s infinite}
+    @keyframes blink{0%,50%,100%{opacity:1}25%,75%{opacity:.5}}
+    .temp-panel h2{color:var(--accent);margin:0 0 8px}
+    .temp-info{color:#ddd;margin-bottom:8px}
+    .status{display:inline-block;padding:8px 12px;border-radius:18px;margin-top:8px}
+    .online{background:#28a745;color:#fff}
+    .offline{background:#dc3545;color:#fff}
+    canvas{width:100%;height:320px;border-radius:10px;background:#111}
+    footer{color:var(--muted);text-align:center;margin-top:18px}
+    /* mobile */
+    @media(max-width:720px){ .led-item{width:120px} canvas{height:260px} }
   </style>
 </head>
 <body>
@@ -141,165 +74,223 @@
 
     <div id="tempPanel" class="temp-panel">
       <h2>Temperatura do Motor da Esteira</h2>
-      <div>Última leitura: <span id="temp">-- °C</span></div>
-      <div>Última atualização: <span id="lastUpdate">--</span></div>
-      <canvas id="tempChart" style="width:100%; height:300px; margin-top:20px;"></canvas>
+      <div class="temp-info">Última leitura: <span id="temp">-- °C</span></div>
+      <div class="temp-info">Última atualização: <span id="lastUpdate">--</span></div>
+      <canvas id="tempChart"></canvas>
     </div>
 
     <div id="status" class="status offline">Desconectado</div>
   </div>
 
-  <!-- ALERTA SONORO -->
-  <audio id="sirene" loop>
+  <!-- Sirene (som simples). O navegador pode bloquear reprodução automática; o usuário pode permitir -->
+  <audio id="sirene" loop preload="auto">
     <source src="https://www.soundjay.com/button/beep-07.mp3" type="audio/mpeg">
   </audio>
 
-  <footer>Dados recebidos via HiveMQ Cloud MQTT</footer>
+  <footer>Dados recebidos via HiveMQ Cloud MQTT — tópico: <strong>smartesteira/dados</strong></footer>
 
-  <script>
-    const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
-    const options = {
-      username: "edgar_thiz",
-      password: "Rg_1065736711@@",
-      clean: true,
-      connectTimeout: 4000,
-      reconnectPeriod: 3000,
-    };
-    const topic = "smartesteira/dados";
-    const client = mqtt.connect(broker, options);
+<script>
+/* ======= CONFIGURAÇÃO MQTT (ajuste somente se necessário) ======= */
+const HIVE_HOST = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
+const WSS_PORT = 8884; // usual porta WSS do HiveMQ Cloud. Se usar outra porta, ajuste aqui.
+const broker = `wss://${HIVE_HOST}:${WSS_PORT}/mqtt`;
+const mqttOptions = {
+  username: "edgar_thiz",
+  password: "Rg_1065736711@@",
+  clean: true,
+  connectTimeout: 4000,
+  reconnectPeriod: 3000,
+  // protocolVersion: 4 // MQTT v3.1.1 (mqtt.js defaults usually OK)
+};
+const topic = "smartesteira/dados";
 
-    const statusEl = document.getElementById("status");
-    const lastUpdateEl = document.getElementById("lastUpdate");
-    const tempPanel = document.getElementById("tempPanel");
-    const sirene = document.getElementById("sirene");
+/* ======= ELEMENTS ======= */
+const statusEl = document.getElementById("status");
+const lastUpdateEl = document.getElementById("lastUpdate");
+const tempPanel = document.getElementById("tempPanel");
+const sirene = document.getElementById("sirene");
 
-    const ledButtons = {
-      azul: document.getElementById("led-azul"),
-      verde: document.getElementById("led-verde"),
-      vermelho: document.getElementById("led-vermelho"),
-      invalido: document.getElementById("led-invalido"),
-      total: document.getElementById("led-total"),
-      temp: document.getElementById("temp")
-    };
+const ledButtons = {
+  azul: document.getElementById("led-azul"),
+  verde: document.getElementById("led-verde"),
+  vermelho: document.getElementById("led-vermelho"),
+  invalido: document.getElementById("led-invalido"),
+  total: document.getElementById("led-total"),
+  temp: document.getElementById("temp")
+};
 
-    const ctx = document.getElementById("tempChart").getContext("2d");
-    const chartData = {
-      labels: [],
-      datasets: [{
-        label: "Temperatura (°C)",
-        data: [],
-        borderColor: "#ffc107",
-        backgroundColor: "rgba(255,193,7,0.2)",
-        borderWidth: 2,
-        tension: 0.3,
-        pointRadius: 4,
-        pointBackgroundColor: "#ffc107"
-      }]
-    };
-    const tempChart = new Chart(ctx, {
-      type: "line",
-      data: chartData,
-      options: {
-        scales: {
-          x: { title: { display: true, text: "Horário" } },
-          y: { title: { display: true, text: "°C" }, beginAtZero: false }
-        }
-      }
-    });
+/* ======= Chart.js setup (corrected for dark bg) ======= */
+const ctx = document.getElementById("tempChart").getContext("2d");
+const chartData = {
+  labels: [],
+  datasets: [{
+    label: "Temperatura (°C)",
+    data: [],
+    borderColor: "#ffc107",
+    backgroundColor: "rgba(255,193,7,0.35)",
+    borderWidth: 3,
+    tension: 0.35,
+    fill: true,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: "#ffeb3b"
+  }]
+};
 
-    let previousValues = {};
-    let flashInterval = null;
-
-    function updateParams(dados) {
-      const now = new Date().toLocaleTimeString("pt-BR");
-      lastUpdateEl.innerText = now;
-
-//    const tempValue = parseFloat(dados.temp).toFixed(2) + ' °C';
-      const tempValue = parseFloat(dados.temperatura).toFixed(2) + ' °C';
-      if (previousValues.temp !== tempValue) {
-        ledButtons.temp.innerText = tempValue;
-        previousValues.temp = tempValue;
-      }
-
-      ["azul","verde","vermelho","invalido","total"].forEach(key => {
-        const value = dados[key];
-        if (previousValues[key] !== value) {
-          ledButtons[key].innerText = value;
-          ledButtons[key].classList.add("changed");
-          setTimeout(() => ledButtons[key].classList.remove("changed"), 500);
-          previousValues[key] = value;
-        }
-      });
-
-      // Atualiza gráfico temperatura (últimas 10 leituras)
-      chartData.labels.push(now);
-    //chartData.datasets[0].data.push(parseFloat(dados.temp));
-      chartData.datasets[0].data.push(parseFloat(dados.temperatura));
-
-      if (chartData.labels.length > 10) {
-        chartData.labels.shift();
-        chartData.datasets[0].data.shift();
-      }
-      tempChart.update();
-
-      // ALERTA VISUAL E SONORO COM PISCAR LEDS
-      //if (parseFloat(dados.temp) > 50) {
-        if (parseFloat(dados.temperatura) > 50) {
-
-        tempPanel.classList.add("alert");
-        if (sirene.paused) sirene.play();
-
-        if (!flashInterval) {
-          flashInterval = setInterval(() => {
-            ["azul","verde","vermelho","invalido","total"].forEach(key => {
-              ledButtons[key].classList.toggle("flash");
-            });
-          }, 500);
-        }
-      } else {
-        tempPanel.classList.remove("alert");
-        if (!sirene.paused) sirene.pause();
-
-        if (flashInterval) {
-          clearInterval(flashInterval);
-          flashInterval = null;
-          ["azul","verde","vermelho","invalido","total"].forEach(key => {
-            ledButtons[key].classList.remove("flash");
-          });
-        }
+const tempChart = new Chart(ctx, {
+  type: "line",
+  data: chartData,
+  options: {
+    animation: false,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { labels: { color: "#eee" } }
+    },
+    scales: {
+      x: {
+        ticks: { color: "#ddd" },
+        grid: { color: "rgba(255,255,255,0.03)" },
+        title: { display: true, text: "Horário", color: "#bbb" }
+      },
+      y: {
+        ticks: { color: "#ddd" },
+        grid: { color: "rgba(255,255,255,0.03)" },
+        title: { display: true, text: "°C", color: "#bbb" },
+        beginAtZero: false
       }
     }
+  }
+});
 
-    client.on("connect", () => {
-      console.log("Conectado ao HiveMQ Cloud");
-      statusEl.classList.remove("offline");
-      statusEl.classList.add("online");
-      statusEl.textContent = "Conectado";
-      client.subscribe(topic, (err) => { if (!err) console.log("Inscrito em:", topic); });
-    });
+/* ======= MQTT client ======= */
+const client = mqtt.connect(broker, mqttOptions);
 
-    client.on("reconnect", () => {
-      console.log("Reconectando...");
-      statusEl.textContent = "Reconectando...";
-      statusEl.classList.remove("online");
-      statusEl.classList.add("offline");
-    });
+/* state */
+let previousValues = {};
+let flashInterval = null;
 
-    client.on("error", (err) => {
-      console.error("Erro MQTT:", err);
-      statusEl.textContent = "Erro de conexão";
-      statusEl.classList.remove("online");
-      statusEl.classList.add("offline");
-    });
+/* ======= helper updates ======= */
+function setStatus(connected) {
+  if (connected) {
+    statusEl.classList.remove("offline");
+    statusEl.classList.add("online");
+    statusEl.textContent = "Conectado";
+  } else {
+    statusEl.classList.remove("online");
+    statusEl.classList.add("offline");
+    statusEl.textContent = "Desconectado";
+  }
+}
 
-    client.on("message", (topic, message) => {
-      try {
-        const dados = JSON.parse(message.toString());
-        updateParams(dados);
-      } catch(e) {
-        console.error("Erro ao ler JSON:", e);
-      }
-    });
-  </script>
+function safeParseFloat(v){ const n=parseFloat(v); return isFinite(n)?n:0; }
+
+/* update dashboard with JSON 'dados' */
+function updateParams(dados) {
+  const now = new Date().toLocaleTimeString("pt-BR");
+  lastUpdateEl.innerText = now;
+
+  // temperatura field in ESP32 JSON is "temperatura"
+  const tempNumeric = safeParseFloat(dados.temperatura ?? dados.temp ?? NaN);
+  const tempValueText = (isNaN(tempNumeric) ? "--" : tempNumeric.toFixed(2)) + " °C";
+
+  if (previousValues.temp !== tempValueText) {
+    ledButtons.temp.innerText = tempValueText;
+    previousValues.temp = tempValueText;
+  }
+
+  // update counts (fallback to 0)
+  ["azul","verde","vermelho","invalido","total"].forEach(key=>{
+    const value = (typeof dados[key] !== "undefined") ? dados[key] : 0;
+    if (previousValues[key] !== String(value)) {
+      ledButtons[key].innerText = String(value);
+      ledButtons[key].classList.add("changed");
+      setTimeout(()=>ledButtons[key].classList.remove("changed"),450);
+      previousValues[key] = String(value);
+    }
+  });
+
+  // push to chart (last 10 readings)
+  if (!isNaN(tempNumeric)) {
+    chartData.labels.push(now);
+    chartData.datasets[0].data.push(tempNumeric);
+    if (chartData.labels.length > 10) {
+      chartData.labels.shift();
+      chartData.datasets[0].data.shift();
+    }
+    tempChart.update();
+    // force redraw for some browsers
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+    tempChart.resize();
+  }
+
+  // ALERT: temperature threshold 50°C
+  if (tempNumeric > 50) {
+    tempPanel.classList.add("alert");
+    // play siren (may require user interaction permission)
+    if (sirene.paused) {
+      // try play; browsers may block - user action may be required
+      sirene.play().catch(()=>{/* autoplay blocked */});
+    }
+    // start flashing circles
+    if (!flashInterval) {
+      flashInterval = setInterval(()=>{
+        ["azul","verde","vermelho","invalido","total"].forEach(k=>{
+          ledButtons[k].classList.toggle("flash");
+        });
+      }, 500);
+    }
+  } else {
+    tempPanel.classList.remove("alert");
+    if (!sirene.paused) { sirene.pause(); sirene.currentTime = 0; }
+    if (flashInterval) {
+      clearInterval(flashInterval);
+      flashInterval = null;
+      ["azul","verde","vermelho","invalido","total"].forEach(k=>ledButtons[k].classList.remove("flash"));
+    }
+  }
+}
+
+/* ======= MQTT event handlers ======= */
+client.on("connect", ()=> {
+  console.log("MQTT conectado", broker);
+  setStatus(true);
+  client.subscribe(topic, (err)=> {
+    if (err) console.warn("subscribe error:", err);
+    else console.log("Subscribed to", topic);
+  });
+});
+
+client.on("reconnect", ()=> {
+  console.log("Reconectando MQTT...");
+  setStatus(false);
+});
+
+client.on("error", (err) => {
+  console.error("MQTT error:", err);
+  setStatus(false);
+});
+
+client.on("offline", ()=> setStatus(false));
+
+client.on("message", (t, message) => {
+  try {
+    const payload = message.toString();
+    // debug
+    // console.log("MSG", t, payload);
+    const dados = JSON.parse(payload);
+    updateParams(dados);
+  } catch(e) {
+    console.error("Falha ao parsear mensagem MQTT:", e, message.toString());
+  }
+});
+
+/* Safety: if page is closed/hidden stop siren */
+window.addEventListener("visibilitychange", ()=>{
+  if (document.hidden && sirene && !sirene.paused) {
+    sirene.pause();
+  }
+});
+</script>
 </body>
 </html>
