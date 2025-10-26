@@ -1,262 +1,236 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painel Industrial Smart Esteira</title>
-
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-:root {
-  --bg: #1b1b1b;
-  --panel: #2b2b2b;
-  --muted: #aaa;
-  --accent: #ffc107;
-}
-html,body{
-  margin:0;
-  font-family:"Segoe UI",Roboto,Arial,sans-serif;
-  background:var(--bg);
-  color:#eee;
-}
-header{
-  background:#0d6efd;
+body{
+  background-color:#1a1a1a;
   color:#fff;
-  padding:18px 22px;
-  font-size:1.5rem;
-  font-weight:700;
-  text-align:center;
-  box-shadow:0 3px 6px rgba(0,0,0,0.4)
+  font-family:Arial, Helvetica, sans-serif;
+  margin:0;
+  padding:0;
+  display:flex;
+  justify-content:center;
 }
 .container{
-  max-width:960px;
-  margin:20px auto;
-  background:var(--panel);
-  padding:22px;
-  border-radius:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.6)
+  width:90%;
+  max-width:1100px;
+  background:#2b2b2b;
+  padding:30px;
+  margin-top:30px;
+  border-radius:20px;
+  box-shadow:0 0 25px rgba(255,255,255,0.05);
 }
-
-/* === Painel de LEDs === */
+h1{
+  text-align:center;
+  color:#f2c200;
+  margin-bottom:40px;
+}
 .led-panel{
   display:flex;
   flex-wrap:wrap;
   justify-content:space-evenly;
-  align-items:flex-start;
+  align-items:center; /* corrigido */
   gap:16px;
   margin-bottom:28px;
 }
-.led-item{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  width:150px;
-  text-align:center;
-}
-.led-label{
-  font-size:0.9rem;
-  color:#cfcfcf;
-  margin-bottom:8px
-}
-.led-circle{
+.led{
   width:110px;
   height:110px;
   border-radius:50%;
   display:flex;
-  align-items:center;
   justify-content:center;
-  font-size:1.6rem;
-  font-weight:800;
+  align-items:center;
+  font-size:28px;
+  font-weight:bold;
   color:#fff;
-  box-shadow:0 6px 12px rgba(0,0,0,0.6);
-  transition:transform .22s,box-shadow .22s,opacity .22s;
+  box-shadow:0 0 10px rgba(0,0,0,0.4);
 }
-.led-circle.changed{transform:scale(1.08);opacity:.95}
-.led-circle.flash{box-shadow:0 0 28px 8px rgba(255,215,0,0.15);transform:scale(1.12)}
-
-#led-azul{background:#007bff}
-#led-verde{background:#28a745}
-#led-vermelho{background:#dc3545}
-#led-invalido{background:#000}
-#led-total{background:#6c757d}
-
-/* === Temperatura === */
-.temp-panel{
-  background:#1a1a1a;
+.led-label{
+  text-align:center;
+  margin-bottom:5px;
+  font-weight:bold;
+}
+.blue{background:#007bff;}
+.green{background:#28a745;}
+.red{background:#dc3545;}
+.black{background:#000;}
+.gray{background:#555;}
+.card{
+  background:#1e1e1e;
+  border-radius:16px;
   padding:20px;
-  border-radius:12px;
-  transition:background-color .3s;
-  margin-bottom:12px
+  text-align:center;
 }
-.temp-panel.alert{
-  background:#dc3545;
-  animation:blink .9s infinite
+.card h2{
+  color:#f2c200;
 }
-@keyframes blink{
-  0%,50%,100%{opacity:1}
-  25%,75%{opacity:.5}
-}
-.temp-panel h2{color:var(--accent);margin:0 0 8px}
-.temp-info{color:#ddd;margin-bottom:8px}
 .status{
-  display:inline-block;
-  padding:8px 12px;
-  border-radius:18px;
-  margin-top:8px
-}
-.online{background:#28a745;color:#fff}
-.offline{background:#dc3545;color:#fff}
-
-/* === Gráfico corrigido === */
-.chart-container{
-  width:100%;
-  max-height:320px;
-  height:320px;
-  overflow:hidden;
+  text-align:center;
+  margin-top:20px;
+  padding:10px;
   border-radius:10px;
-  background:#111;
+  font-weight:bold;
 }
+.status.connected{background:#28a745;}
+.status.disconnected{background:#dc3545;}
 canvas{
-  width:100% !important;
-  height:100% !important;
+  width:100%!important;
+  max-height:320px;
 }
-
-/* === Footer e responsividade === */
-footer{color:var(--muted);text-align:center;margin-top:20px}
-@media(max-width:720px){
-  .led-item{width:120px}
-  .chart-container{height:240px}
+.alerta{
+  animation:piscar 0.6s infinite alternate;
+}
+@keyframes piscar{
+  from{color:#fff;}
+  to{color:#ff0000;}
 }
 </style>
 </head>
-
 <body>
-<header>💡 Painel Industrial - Smart Esteira</header>
-
 <div class="container">
+  <h1>Painel Industrial Smart Esteira</h1>
+
   <div class="led-panel">
-    <div class="led-item">
+    <div>
       <div class="led-label">Qtde objetos azuis</div>
-      <div id="led-azul" class="led-circle">0</div>
+      <div class="led blue" id="azul">0</div>
     </div>
-    <div class="led-item">
+    <div>
       <div class="led-label">Qtde objetos verdes</div>
-      <div id="led-verde" class="led-circle">0</div>
+      <div class="led green" id="verde">0</div>
     </div>
-    <div class="led-item">
+    <div>
       <div class="led-label">Qtde objetos vermelhos</div>
-      <div id="led-vermelho" class="led-circle">0</div>
+      <div class="led red" id="vermelho">0</div>
     </div>
-    <div class="led-item">
+    <div>
       <div class="led-label">Objetos inválidos</div>
-      <div id="led-invalido" class="led-circle">0</div>
+      <div class="led black" id="invalido">0</div>
     </div>
-    <div class="led-item">
+    <div>
       <div class="led-label">Total de objetos</div>
-      <div id="led-total" class="led-circle">0</div>
+      <div class="led gray" id="total">0</div>
     </div>
   </div>
 
-  <div id="tempPanel" class="temp-panel">
+  <div class="card">
     <h2>Temperatura do Motor da Esteira</h2>
-    <div class="temp-info">Última leitura: <span id="temp">-- °C</span></div>
-    <div class="temp-info">Última atualização: <span id="lastUpdate">--</span></div>
-    <div class="chart-container">
-      <canvas id="tempChart"></canvas>
-    </div>
+    <p>Última leitura: <span id="temp">--</span> °C</p>
+    <p>Última atualização: <span id="hora">--:--:--</span></p>
+    <canvas id="grafico"></canvas>
   </div>
 
-  <div id="status" class="status offline">Desconectado</div>
+  <div class="status disconnected" id="status">Desconectado</div>
 </div>
 
-<audio id="sirene" loop preload="auto">
-  <source src="https://www.soundjay.com/button/beep-07.mp3" type="audio/mpeg">
-</audio>
-
-<footer>Dados via HiveMQ Cloud MQTT — tópico: <strong>smartesteira/dados</strong></footer>
-
 <script>
-const HIVE_HOST = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
-const WSS_PORT = 8884; // mude para 8883 se seu WSS estiver nessa porta
-const broker = `wss://${HIVE_HOST}:${WSS_PORT}/mqtt`;
-const mqttOptions = {
-  username:"edgar_thiz",
-  password:"Rg_1065736711@@",
-  clean:true,
-  connectTimeout:4000,
-  reconnectPeriod:3000
+// ===== CONFIGURAÇÃO MQTT =====
+const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
+const options = {
+  username: "edgar_thiz",
+  password: "Rg_1065736711@@",
+  clean: true,
+  connectTimeout: 4000,
+  reconnectPeriod: 5000
 };
-const topic="smartesteira/dados";
+const client = mqtt.connect(broker, options);
+const topic = "smartesteira/dados";
 
-const statusEl=document.getElementById("status");
-const tempPanel=document.getElementById("tempPanel");
-const sirene=document.getElementById("sirene");
-const lastUpdateEl=document.getElementById("lastUpdate");
-const ledButtons={
-  azul:document.getElementById("led-azul"),
-  verde:document.getElementById("led-verde"),
-  vermelho:document.getElementById("led-vermelho"),
-  invalido:document.getElementById("led-invalido"),
-  total:document.getElementById("led-total"),
-  temp:document.getElementById("temp")
-};
+// ===== ELEMENTOS =====
+const s = id => document.getElementById(id);
+const leds = {azul:s("azul"),verde:s("verde"),vermelho:s("vermelho"),invalido:s("invalido"),total:s("total")};
+const statusDiv = s("status");
+const tempSpan = s("temp");
+const horaSpan = s("hora");
 
-const ctx=document.getElementById("tempChart").getContext("2d");
-const chartData={labels:[],datasets:[{label:"Temperatura (°C)",data:[],borderColor:"#ffc107",backgroundColor:"rgba(255,193,7,0.35)",borderWidth:2.5,tension:0.3,fill:true,pointRadius:4,pointBackgroundColor:"#ffeb3b"}]};
-const tempChart=new Chart(ctx,{type:"line",data:chartData,options:{
-  responsive:true,maintainAspectRatio:false,
-  plugins:{legend:{labels:{color:"#eee"}}},
-  scales:{
-    x:{ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.05)"}},
-    y:{ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.05)"},title:{display:true,text:"°C",color:"#bbb"}}
+// ===== GRÁFICO =====
+const ctx = document.getElementById("grafico").getContext("2d");
+const chartData = {labels:[],datasets:[{label:"Temperatura (°C)",borderColor:"#f2c200",backgroundColor:"rgba(242,194,0,0.2)",data:[],tension:0.2,fill:true}]};
+const grafico = new Chart(ctx,{
+  type:"line",
+  data:chartData,
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    scales:{
+      x:{
+        ticks:{color:"#ddd"},
+        grid:{color:"rgba(255,255,255,0.1)"}
+      },
+      y:{
+        min:0,
+        suggestedMax:60,
+        ticks:{color:"#ddd"},
+        grid:{color:"rgba(255,255,255,0.1)"},
+        title:{display:true,text:"Temperatura (°C)",color:"#bbb"}
+      }
+    },
+    plugins:{legend:{labels:{color:"#f2c200"}}}
   }
-}});
+});
 
-function setStatus(ok){statusEl.className="status "+(ok?"online":"offline");statusEl.textContent=ok?"Conectado":"Desconectado";}
-const client=mqtt.connect(broker,mqttOptions);
-let flash=null,prev={};
+// ===== FUNÇÕES =====
+client.on("connect",()=>{
+  statusDiv.textContent="Conectado";
+  statusDiv.className="status connected";
+  client.subscribe(topic);
+});
+client.on("reconnect",()=>{
+  statusDiv.textContent="Reconectando...";
+  statusDiv.className="status disconnected";
+});
+client.on("offline",()=>{
+  statusDiv.textContent="Desconectado";
+  statusDiv.className="status disconnected";
+});
+client.on("message",(t,p)=>{
+  if(t===topic){
+    try{
+      const dados = JSON.parse(p.toString());
+      atualizarDados(dados);
+    }catch(e){console.error("Erro JSON",e);}
+  }
+});
 
-function updateDados(d){
-  const agora=new Date().toLocaleTimeString("pt-BR");
-  lastUpdateEl.textContent=agora;
-  const temp=parseFloat(d.temperatura)||0;
-  ledButtons.temp.textContent=temp.toFixed(1)+" °C";
-  ["azul","verde","vermelho","invalido","total"].forEach(k=>{
-    const v=d[k]||0;
-    ledButtons[k].textContent=v;
-  });
-  chartData.labels.push(agora);
+function atualizarDados(d){
+  // atualiza contadores
+  leds.azul.textContent=d.azul??0;
+  leds.verde.textContent=d.verde??0;
+  leds.vermelho.textContent=d.vermelho??0;
+  leds.invalido.textContent=d.invalido??0;
+  leds.total.textContent=d.total??0;
+
+  // temperatura
+  const temp = d.temperatura??0;
+  tempSpan.textContent=temp.toFixed(2);
+  const agora = new Date();
+  const label = agora.toLocaleTimeString("pt-BR",{hour12:false});
+  horaSpan.textContent=label;
+
+  // evita labels duplicados
+  if(chartData.labels.length>0 && chartData.labels[chartData.labels.length-1]===label) return;
+  chartData.labels.push(label);
   chartData.datasets[0].data.push(temp);
-  if(chartData.labels.length>10){chartData.labels.shift();chartData.datasets[0].data.shift();}
-  tempChart.update();
 
-  if(temp>50){
-    tempPanel.classList.add("alert");
-    sirene.play().catch(()=>{});
-    if(!flash){
-      flash=setInterval(()=>{
-        ["azul","verde","vermelho","invalido","total"].forEach(k=>{
-          ledButtons[k].classList.toggle("flash");
-        });
-      },500);
-    }
+  // mantém 10 amostras
+  if(chartData.labels.length>10){
+    chartData.labels.shift();
+    chartData.datasets[0].data.shift();
+  }
+  grafico.update();
+
+  // alerta visual
+  if(d.alerta){
+    tempSpan.classList.add("alerta");
   }else{
-    tempPanel.classList.remove("alert");
-    sirene.pause();sirene.currentTime=0;
-    if(flash){clearInterval(flash);flash=null;["azul","verde","vermelho","invalido","total"].forEach(k=>ledButtons[k].classList.remove("flash"));}
+    tempSpan.classList.remove("alerta");
   }
 }
-
-client.on("connect",()=>{setStatus(true);client.subscribe(topic);});
-client.on("reconnect",()=>setStatus(false));
-client.on("offline",()=>setStatus(false));
-client.on("message",(t,msg)=>{
-  try{updateDados(JSON.parse(msg.toString()));}
-  catch(e){console.error("Erro JSON",e);}
-});
 </script>
 </body>
 </html>
