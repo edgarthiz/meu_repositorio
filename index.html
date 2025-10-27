@@ -15,26 +15,42 @@ body {
   padding: 0;
   text-align: center;
 }
-h1 {
+
+/* Título */
+header {
   margin-top: 25px;
-  font-size: 2.2em;
+}
+h1 {
+  font-size: 2.3em;
   color: #00e6ff;
   text-shadow: 0 0 20px #00e6ff;
   font-weight: bold;
+  margin-bottom: 5px;
   letter-spacing: 1px;
 }
 h2 {
-  margin-top: -10px;
-  font-size: 1.4em;
+  font-size: 1.3em;
   color: #00e6ff;
   text-shadow: 0 0 10px #00e6ff;
   font-weight: 600;
+  margin-top: 0;
 }
+
+/* Usuário canto superior direito */
+.usuario {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  color: #aaa;
+  font-size: 0.9em;
+}
+
+/* Painéis */
 .panel {
   display: flex;
   justify-content: center;
   gap: 16px;
-  margin: 30px 0;
+  margin: 35px 0;
   flex-wrap: wrap;
 }
 .card {
@@ -55,6 +71,7 @@ h2 {
 .black { background: #000; }
 .gray { background: #555; }
 
+/* Temperatura */
 .temp-card {
   background: #f2a500;
   color: #000;
@@ -65,49 +82,58 @@ h2 {
   font-weight: bold;
   box-shadow: 0 0 20px rgba(242,165,0,0.5);
   margin-bottom: 15px;
+  transition: 0.2s;
 }
 .alerta {
   animation: piscar 0.6s infinite alternate;
 }
 @keyframes piscar {
-  from { background-color: #f2a500; }
+  from { background-color: #f2a500; color: #000; }
   to { background-color: #ff0000; color: #fff; }
 }
+
+/* Botão silenciar */
 #btnSilenciar {
   display: none;
-  background: #555;
+  background: #dc3545;
   color: #fff;
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-weight: bold;
   margin-bottom: 10px;
+  box-shadow: 0 0 8px rgba(255,0,0,0.4);
 }
-#btnSilenciar:hover { background: #777; }
+#btnSilenciar:hover { background: #ff4747; }
 
+/* Gráfico */
 .grafico {
   width: 90%;
   max-width: 900px;
-  height: 360px;
+  height: 380px;
   background: #161b22;
-  margin: 0 auto;
+  margin: 0 auto 40px auto;
   border-radius: 15px;
-  padding: 20px;
+  padding: 25px;
   box-shadow: 0 0 15px rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
-
-.usuario {
-  text-align: right;
-  margin: 20px 40px;
-  color: #aaa;
-  font-size: 0.9em;
+canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 </style>
 </head>
 <body>
-  <h1>SMART ESTEIRA</h1>
-  <h2>MONITORAMENTO</h2>
+  <header>
+    <h1>SMART ESTEIRA</h1>
+    <h2>MONITORAMENTO</h2>
+  </header>
+
+  <div class="usuario">Usuário: <span id="usuario">--</span></div>
 
   <div class="panel">
     <div class="card blue">Azul<br><span id="azul">0</span></div>
@@ -127,9 +153,7 @@ h2 {
     <canvas id="grafico"></canvas>
   </div>
 
-  <div class="usuario">Usuário: <span id="usuario">--</span></div>
-
-  <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
+  <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/siren.ogg" preload="auto" loop></audio>
 
 <script>
 const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
@@ -152,7 +176,7 @@ const btnSilenciar = s("btnSilenciar");
 const alarme = s("alarme");
 
 const ctx = document.getElementById("grafico").getContext("2d");
-const chartData = { labels:[], datasets:[{ label:"Temperatura (°C)", borderColor:"#f2c200", backgroundColor:"rgba(242,194,0,0.2)", data:[], fill:true, tension:0.2 }] };
+const chartData = { labels:[], datasets:[{ label:"Temperatura (°C)", borderColor:"#f2c200", backgroundColor:"rgba(242,194,0,0.25)", data:[], fill:true, tension:0.2, pointRadius:4, pointHoverRadius:6 }] };
 const grafico = new Chart(ctx, {
   type:"line",
   data:chartData,
@@ -161,7 +185,8 @@ const grafico = new Chart(ctx, {
       x:{ticks:{color:"#ccc"},grid:{color:"rgba(255,255,255,0.1)"}},
       y:{min:0,suggestedMax:60,ticks:{color:"#ccc"},grid:{color:"rgba(255,255,255,0.1)"}}
     },
-    plugins:{legend:{labels:{color:"#f2c200"}}}
+    plugins:{legend:{labels:{color:"#f2c200"}}},
+    animation:false
   }
 });
 
@@ -174,7 +199,7 @@ function atualizarCorGrafico(temp){
     grafico.data.datasets[0].backgroundColor="rgba(255,0,0,0.2)";
   } else {
     grafico.data.datasets[0].borderColor="#f2c200";
-    grafico.data.datasets[0].backgroundColor="rgba(242,194,0,0.2)";
+    grafico.data.datasets[0].backgroundColor="rgba(242,194,0,0.25)";
   }
   grafico.update();
 }
@@ -182,8 +207,8 @@ function atualizarCorGrafico(temp){
 function dispararAlerta(){
   if(!alarmeAtivo && !silenciado){
     tempBox.classList.add("alerta");
-    if(somAtivo) alarme.play().catch(()=>{});
     btnSilenciar.style.display="inline-block";
+    alarme.play().catch(()=>{});
     alarmeAtivo=true;
   }
 }
