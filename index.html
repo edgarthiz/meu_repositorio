@@ -9,7 +9,7 @@
   <style>
     body {
       font-family: "Segoe UI", sans-serif;
-      background-color: #121212;
+      background-color: #0f1418;
       color: #e0e0e0;
       text-align: center;
       margin: 0;
@@ -18,44 +18,56 @@
 
     h1 {
       color: #00bcd4;
-      font-size: 2.5rem;
+      font-size: 2.3rem;
       margin-top: 20px;
+      text-shadow: 0 0 10px #00bcd4;
     }
 
     .top-bar {
       display: flex;
-      justify-content: space-around;
+      justify-content: center;
       align-items: center;
       flex-wrap: wrap;
-      margin: 20px;
-      gap: 10px;
+      margin: 25px;
+      gap: 15px;
     }
 
     .card {
-      flex: 1 1 150px;
-      max-width: 180px;
+      flex: 1 1 140px;
+      max-width: 160px;
       padding: 15px;
       border-radius: 12px;
       color: #fff;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
       font-weight: bold;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      transition: transform 0.2s ease;
     }
+
+    .card:hover { transform: scale(1.05); }
 
     .azul { background-color: #1565c0; }
     .verde { background-color: #2e7d32; }
     .vermelho { background-color: #c62828; }
     .preto { background-color: #000; color: #fff; }
     .cinza { background-color: #424242; }
+
     .temperatura {
       background-color: #ff9800;
-      font-size: 1.2rem;
+      color: #000;
+      font-size: 1.3rem;
+      display: inline-block;
+      margin-top: 10px;
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 12px rgba(255,152,0,0.5);
+      font-weight: bold;
     }
 
     #graficoContainer {
       width: 70%;
       max-width: 800px;
-      margin: 40px auto;
-      background-color: #1e1e1e;
+      margin: 30px auto;
+      background-color: #1c1f24;
       border-radius: 12px;
       padding: 20px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
@@ -74,8 +86,8 @@
     }
 
     @keyframes piscar {
-      0% { background-color: #c62828; }
-      100% { background-color: #ff1744; }
+      0% { background-color: #c62828; color: #fff; }
+      100% { background-color: #ff1744; color: #fff; }
     }
 
     #btnSilenciar {
@@ -103,7 +115,13 @@
     <div class="card vermelho" id="vermelhoCard">Vermelho<br><span id="vermelhoValor">0</span></div>
     <div class="card preto" id="invalidoCard">Inválido<br><span id="invalidoValor">0</span></div>
     <div class="card cinza" id="totalCard">Total<br><span id="totalValor">0</span></div>
-    <div class="card temperatura" id="tempCard">Temperatura do Motor da Esteira<br><span id="tempValor">-- °C</span></div>
+  </div>
+
+  <div>
+    <div class="temperatura" id="tempCard">
+      Temperatura do Motor da Esteira<br>
+      <span id="tempValor">-- °C</span>
+    </div>
   </div>
 
   <button id="btnSilenciar">🔇 Silenciar Alerta</button>
@@ -113,117 +131,3 @@
   </div>
 
   <div id="usuario">Usuário: <strong>Admin</strong></div>
-
-  <audio id="somAlerta" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
-
-  <script>
-    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
-    const topicoTemperatura = "smartesteira/temperatura";
-    const topicoContadores = "smartesteira/contadores";
-
-    let alertaAtivo = false;
-    let somAtivo = true;
-    const limiteAlerta = 50; // °C
-
-    const ctx = document.getElementById('graficoTemperatura').getContext('2d');
-    const grafico = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: [{
-          label: 'Temperatura (°C)',
-          data: [],
-          borderColor: '#ffeb3b',
-          backgroundColor: '#ffeb3b',
-          borderWidth: 2,
-          tension: 0.3,
-          fill: false,
-          pointRadius: 4
-        }]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { ticks: { color: '#ccc' }, grid: { color: '#333' } },
-          y: { ticks: { color: '#ccc' }, grid: { color: '#333' } }
-        },
-        plugins: {
-          legend: { labels: { color: '#fff' } }
-        }
-      }
-    });
-
-    client.on('connect', () => {
-      console.log("Conectado ao broker MQTT");
-      client.subscribe(topicoTemperatura);
-      client.subscribe(topicoContadores);
-    });
-
-    client.on('message', (topic, message) => {
-      if (topic === topicoTemperatura) {
-        const temperatura = parseFloat(message.toString());
-        atualizarTemperatura(temperatura);
-      } else if (topic === topicoContadores) {
-        const dados = JSON.parse(message.toString());
-        atualizarContadores(dados);
-      }
-    });
-
-    function atualizarTemperatura(temp) {
-      const tempValor = document.getElementById('tempValor');
-      const tempCard = document.getElementById('tempCard');
-      const som = document.getElementById('somAlerta');
-
-      tempValor.innerText = `${temp.toFixed(1)} °C`;
-
-      const hora = new Date().toLocaleTimeString();
-      grafico.data.labels.push(hora);
-      grafico.data.datasets[0].data.push(temp);
-      if (grafico.data.labels.length > 15) {
-        grafico.data.labels.shift();
-        grafico.data.datasets[0].data.shift();
-      }
-
-      if (temp >= limiteAlerta) {
-        tempCard.classList.add('alerta-ativo');
-        grafico.data.datasets[0].borderColor = '#ff1744';
-        grafico.data.datasets[0].backgroundColor = '#ff1744';
-
-        if (!alertaAtivo && somAtivo) {
-          alertaAtivo = true;
-          som.loop = true;
-          som.play();
-        }
-      } else {
-        tempCard.classList.remove('alerta-ativo');
-        grafico.data.datasets[0].borderColor = '#ffeb3b';
-        grafico.data.datasets[0].backgroundColor = '#ffeb3b';
-        alertaAtivo = false;
-        som.pause();
-        som.currentTime = 0;
-      }
-
-      grafico.update();
-    }
-
-    function atualizarContadores(dados) {
-      document.getElementById('azulValor').innerText = dados.azul || 0;
-      document.getElementById('verdeValor').innerText = dados.verde || 0;
-      document.getElementById('vermelhoValor').innerText = dados.vermelho || 0;
-      document.getElementById('invalidoValor').innerText = dados.invalido || 0;
-
-      const total = (dados.azul || 0) + (dados.verde || 0) + (dados.vermelho || 0) + (dados.invalido || 0);
-      document.getElementById('totalValor').innerText = total;
-    }
-
-    document.getElementById('btnSilenciar').addEventListener('click', () => {
-      const som = document.getElementById('somAlerta');
-      som.pause();
-      som.currentTime = 0;
-      somAtivo = false;
-      alertaAtivo = false;
-      alert("Alerta silenciado.");
-    });
-  </script>
-</body>
-</html>
