@@ -1,291 +1,156 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Industrial Smart Esteira</title>
-<script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
+<title>Monitoramento ESP32 + Arduino Mega</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body{
-  background-color:#1a1a1a;
-  color:#fff;
-  font-family:Arial, Helvetica, sans-serif;
-  margin:0;
-  padding:0;
-  display:flex;
-  justify-content:center;
-}
-.container{
-  width:90%;
-  max-width:1100px;
-  background:#2b2b2b;
-  padding:30px;
-  margin-top:30px;
-  border-radius:20px;
-  box-shadow:0 0 25px rgba(255,255,255,0.05);
-}
-h1{
-  text-align:center;
-  color:#f2c200;
-  margin-bottom:40px;
-}
-.led-panel{
-  display:flex;
-  flex-wrap:wrap;
-  justify-content:space-evenly;
-  align-items:center;
-  gap:16px;
-  margin-bottom:28px;
-}
-.led{
-  width:110px;
-  height:110px;
-  border-radius:50%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:28px;
-  font-weight:bold;
-  color:#fff;
-  box-shadow:0 0 10px rgba(0,0,0,0.4);
-}
-.led-label{
-  text-align:center;
-  margin-bottom:5px;
-  font-weight:bold;
-}
-.blue{background:#007bff;}
-.green{background:#28a745;}
-.red{background:#dc3545;}
-.black{background:#000;}
-.gray{background:#555;}
-.card{
-  background:#1e1e1e;
-  border-radius:16px;
-  padding:20px;
-  text-align:center;
-}
-.card h2{
-  color:#f2c200;
-}
-.status{
-  text-align:center;
-  padding:6px 12px;
-  border-radius:10px;
-  font-weight:bold;
-  display:inline-block;
-}
-.status.connected{background:#28a745;}
-.status.disconnected{background:#dc3545;}
-.status-buttons{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:10px;
-}
-canvas{
-  width:100%!important;
-  max-height:320px;
-}
-.alerta{
-  animation:piscar 0.6s infinite alternate;
-}
-@keyframes piscar{
-  from{color:#fff;}
-  to{color:#ff0000;}
-}
-button{
-  padding:6px 12px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-  font-weight:bold;
-}
-button.silenciar{
-  background:#007bff;
-  color:#fff;
-}
+  body {
+    background-color: #121212;
+    color: #f5f5f5;
+    font-family: "Segoe UI", sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    color: #00bcd4;
+  }
+  .dados {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 25px;
+    margin-top: 20px;
+  }
+  .card {
+    background-color: #1e1e1e;
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px #00bcd4;
+    min-width: 150px;
+  }
+  .valor {
+    font-size: 2em;
+    font-weight: bold;
+  }
+  .alerta {
+    color: #ff1744;
+    animation: piscar 1s infinite;
+  }
+  @keyframes piscar {
+    0%, 50%, 100% { opacity: 1; }
+    25%, 75% { opacity: 0; }
+  }
+  canvas {
+    background: #1e1e1e;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 40px;
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Painel Industrial Smart Esteira</h1>
+<h1>Monitoramento - ESP32 + Arduino Mega</h1>
 
-  <div class="led-panel">
-    <div>
-      <div class="led-label">Qtde objetos azuis</div>
-      <div class="led blue" id="azul">0</div>
-    </div>
-    <div>
-      <div class="led-label">Qtde objetos verdes</div>
-      <div class="led green" id="verde">0</div>
-    </div>
-    <div>
-      <div class="led-label">Qtde objetos vermelhos</div>
-      <div class="led red" id="vermelho">0</div>
-    </div>
-    <div>
-      <div class="led-label">Objetos inválidos</div>
-      <div class="led black" id="invalido">0</div>
-    </div>
-    <div>
-      <div class="led-label">Total de objetos</div>
-      <div class="led gray" id="total">0</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Temperatura do Motor da Esteira</h2>
-    <p>Última leitura: <span id="temp">--</span> °C</p>
-    <p>Última atualização: <span id="hora">--:--:--</span></p>
-    <canvas id="grafico"></canvas>
-    <div class="status-buttons">
-      <div class="status disconnected" id="status">Desconectado</div>
-      <button class="silenciar" id="btnSilenciar">Silenciar Alarme</button>
-    </div>
-    <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
-  </div>
+<div class="dados">
+  <div class="card"><p>Temperatura</p><p id="temp" class="valor">-- °C</p></div>
+  <div class="card"><p>Azul</p><p id="azul" class="valor">--</p></div>
+  <div class="card"><p>Verde</p><p id="verde" class="valor">--</p></div>
+  <div class="card"><p>Vermelho</p><p id="vermelho" class="valor">--</p></div>
+  <div class="card"><p>Inválido</p><p id="invalido" class="valor">--</p></div>
+  <div class="card"><p>Total</p><p id="total" class="valor">--</p></div>
 </div>
 
+<canvas id="graficoTemp" width="400" height="200"></canvas>
+
+<audio id="alarmeAudio">
+  <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+</audio>
+
 <script>
-// ===== CONFIGURAÇÃO MQTT =====
-const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
-const options = {
-  username: "edgar_thiz",
-  password: "Rg_1065736711@@",
-  clean: true,
-  connectTimeout: 4000,
-  reconnectPeriod: 5000
-};
-const client = mqtt.connect(broker, options);
-const topic = "smartesteira/dados";
+const LIMIAR_ALERTA = 50.0; // 🔥 Alerta se temperatura >= 50°C
 
-// ===== ELEMENTOS =====
-const s = id => document.getElementById(id);
-const leds = {azul:s("azul"),verde:s("verde"),vermelho:s("vermelho"),invalido:s("invalido"),total:s("total")};
-const statusDiv = s("status");
-const tempSpan = s("temp");
-const horaSpan = s("hora");
-const btnSilenciar = s("btnSilenciar");
-const alarme = s("alarme");
+const ctx = document.getElementById('graficoTemp').getContext('2d');
+let temperaturas = [];
+let tempos = [];
 
-// ===== GRÁFICO =====
-const ctx = document.getElementById("grafico").getContext("2d");
-const chartData = {labels:[],datasets:[{label:"Temperatura (°C)",borderColor:"#f2c200",backgroundColor:"rgba(242,194,0,0.2)",data:[],tension:0.2,fill:true}]};
-const grafico = new Chart(ctx,{
-  type:"line",
-  data:chartData,
-  options:{
-    responsive:true,
-    maintainAspectRatio:false,
-    scales:{
-      x:{ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"}},
-      y:{min:0,suggestedMax:60,ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"},title:{display:true,text:"Temperatura (°C)",color:"#bbb"}}
+let chart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: tempos,
+    datasets: [{
+      label: 'Temperatura (°C)',
+      data: temperaturas,
+      borderColor: 'yellow',
+      borderWidth: 2,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 3,
+      pointBackgroundColor: '#fff'
+    }]
+  },
+  options: {
+    scales: {
+      x: { ticks: { color: '#ccc' } },
+      y: {
+        beginAtZero: false,
+        ticks: { color: '#ccc' }
+      }
     },
-    plugins:{legend:{labels:{color:"#f2c200"}}}
-  }
-});
-
-// ===== ALERTA =====
-let alarmeAtivo = false;
-let silenciar = false;
-
-// Ativa som do alarme apenas após interação do usuário
-let somAtivo = false;
-document.body.addEventListener("click",()=>{ somAtivo = true; },{once:true});
-
-function atualizarCorGrafico(temp){
-  if(temp >= 50){
-    grafico.data.datasets[0].borderColor = "#ff0000";
-    grafico.data.datasets[0].backgroundColor = "rgba(255,0,0,0.2)";
-  } else {
-    grafico.data.datasets[0].borderColor = "#f2c200";
-    grafico.data.datasets[0].backgroundColor = "rgba(242,194,0,0.2)";
-  }
-  grafico.update();
-}
-
-function dispararAlarme(){
-  if(!silenciar && !alarmeAtivo){
-    if(somAtivo) alarme.play().catch(()=>console.log("Autoplay bloqueado"));
-    tempSpan.classList.add("alerta");
-    alarmeAtivo = true;
-  }
-}
-
-function pararAlarme(){
-  alarme.pause();
-  alarme.currentTime = 0;
-  tempSpan.classList.remove("alerta");
-  alarmeAtivo = false;
-}
-
-btnSilenciar.onclick = ()=>{
-  silenciar = true;
-  pararAlarme();
-}
-
-// ===== FUNÇÕES MQTT =====
-client.on("connect",()=>{
-  statusDiv.textContent="Conectado";
-  statusDiv.className="status connected";
-  client.subscribe(topic);
-});
-client.on("reconnect",()=>{
-  statusDiv.textContent="Reconectando...";
-  statusDiv.className="status disconnected";
-});
-client.on("offline",()=>{
-  statusDiv.textContent="Desconectado";
-  statusDiv.className="status disconnected";
-});
-client.on("message",(t,p)=>{
-  if(t===topic){
-    try{
-      const dados = JSON.parse(p.toString());
-      atualizarDados(dados);
-    }catch(e){console.error("Erro JSON",e);}
-  }
-});
-
-// ===== ATUALIZAÇÃO DE DADOS A CADA 5 SEG =====
-let ultimaAtualizacao = 0;
-function atualizarDados(d){
-  const agora = Date.now();
-  if(agora - ultimaAtualizacao < 5000) return;
-  ultimaAtualizacao = agora;
-
-  // atualiza contadores
-  leds.azul.textContent=d.azul??0;
-  leds.verde.textContent=d.verde??0;
-  leds.vermelho.textContent=d.vermelho??0;
-  leds.invalido.textContent=d.invalido??0;
-  leds.total.textContent=d.total??0;
-
-  // temperatura
-  const temp = d.temperatura??0;
-  tempSpan.textContent=temp.toFixed(2);
-  const label = new Date().toLocaleTimeString("pt-BR",{hour12:false});
-  horaSpan.textContent=label;
-
-  atualizarCorGrafico(temp);
-
-  // mantém 10 amostras
-  if(chartData.labels.length===0 || chartData.labels[chartData.labels.length-1]!==label){
-    chartData.labels.push(label);
-    chartData.datasets[0].data.push(temp);
-    if(chartData.labels.length>10){
-      chartData.labels.shift();
-      chartData.datasets[0].data.shift();
+    plugins: {
+      legend: { labels: { color: '#ccc' } }
     }
-    grafico.update();
   }
+});
 
-  // alerta
-  if(temp >= 50) dispararAlarme();
-  else pararAlarme();
+function atualizarDados() {
+  fetch("https://api.jsonbin.io/v3/b/ESP32_MQTT") // ← Substitua pelo endpoint real MQTT/HTTP
+    .then(r => r.json())
+    .then(dados => {
+      let temp = dados.record.temperatura;
+      let azul = dados.record.azul;
+      let verde = dados.record.verde;
+      let vermelho = dados.record.vermelho;
+      let invalido = dados.record.invalido;
+      let total = dados.record.total;
+
+      document.getElementById('azul').textContent = azul;
+      document.getElementById('verde').textContent = verde;
+      document.getElementById('vermelho').textContent = vermelho;
+      document.getElementById('invalido').textContent = invalido;
+      document.getElementById('total').textContent = total;
+
+      let tempElem = document.getElementById('temp');
+      tempElem.textContent = temp.toFixed(2) + " °C";
+
+      if (temp >= LIMIAR_ALERTA) {
+        tempElem.classList.add('alerta');
+        document.getElementById('alarmeAudio').play();
+        chart.data.datasets[0].borderColor = 'red';
+      } else {
+        tempElem.classList.remove('alerta');
+        chart.data.datasets[0].borderColor = 'yellow';
+      }
+
+      let agora = new Date();
+      let tempoFormatado = agora.toLocaleTimeString();
+
+      temperaturas.push(temp);
+      tempos.push(tempoFormatado);
+
+      if (temperaturas.length > 10) {
+        temperaturas.shift();
+        tempos.shift();
+      }
+
+      chart.update();
+    })
+    .catch(err => console.error("Erro ao buscar dados:", err));
 }
+
+setInterval(atualizarDados, 5000);
 </script>
 </body>
 </html>
