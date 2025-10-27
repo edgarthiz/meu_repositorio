@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monitoramento ESP32 + Arduino Mega</title>
+<title>Monitoramento - SMART ESTEIRA</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <style>
   body {
     background-color: #121212;
@@ -52,7 +53,7 @@
 </style>
 </head>
 <body>
-<h1>Monitoramento - ESP32 + Arduino Mega</h1>
+<h1>Monitoramento - SMART ESTEIRA</h1>
 
 <div class="dados">
   <div class="card"><p>Temperatura</p><p id="temp" class="valor">-- °C</p></div>
@@ -70,8 +71,18 @@
 </audio>
 
 <script>
-const LIMIAR_ALERTA = 50.0; // 🔥 Alerta se temperatura >= 50°C
+// ===============================
+// CONFIGURAÇÃO DO MQTT VIA WEBSOCKET
+// ===============================
+const MQTT_BROKER = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
+const MQTT_USER = "edgar_thiz";
+const MQTT_PASS = "Rg_1065736711@@";
+const TOPIC = "smartesteira/dados";
+const LIMIAR_ALERTA = 50.0;
 
+// ===============================
+// CONFIGURAÇÃO DO GRÁFICO
+// ===============================
 const ctx = document.getElementById('graficoTemp').getContext('2d');
 let temperaturas = [];
 let tempos = [];
@@ -94,63 +105,82 @@ let chart = new Chart(ctx, {
   options: {
     scales: {
       x: { ticks: { color: '#ccc' } },
-      y: {
-        beginAtZero: false,
-        ticks: { color: '#ccc' }
-      }
+      y: { ticks: { color: '#ccc' }, beginAtZero: false }
     },
-    plugins: {
-      legend: { labels: { color: '#ccc' } }
-    }
+    plugins: { legend: { labels: { color: '#ccc' } } }
   }
 });
 
-function atualizarDados() {
-  fetch("https://api.jsonbin.io/v3/b/ESP32_MQTT") // ← Substitua pelo endpoint real MQTT/HTTP
-    .then(r => r.json())
-    .then(dados => {
-      let temp = dados.record.temperatura;
-      let azul = dados.record.azul;
-      let verde = dados.record.verde;
-      let vermelho = dados.record.vermelho;
-      let invalido = dados.record.invalido;
-      let total = dados.record.total;
+// ===============================
+// CONEXÃO MQTT
+// ===============================
+const options = {
+  username: MQTT_USER,
+  password: MQTT_PASS,
+  protocolVersion: 5,
+  clean: true,
+  reconnectPeriod: 3000,
+  connectTimeout: 4000,
+};
 
-      document.getElementById('azul').textContent = azul;
-      document.getElementById('verde').textContent = verde;
-      document.getElementById('vermelho').textContent = vermelho;
-      document.getElementById('invalido').textContent = invalido;
-      document.getElementById('total').textContent = total;
+const client = mqtt.connect(MQTT_BROKER, options);
 
-      let tempElem = document.getElementById('temp');
-      tempElem.textContent = temp.toFixed(2) + " °C";
+client.on("connect", () => {
+  console.log("✅ Conectado ao HiveMQ via WebSocket");
+  client.subscribe(TOPIC, err => {
+    if (err) console.error("Erro ao inscrever no tópico:", err);
+    else console.log("📡 Inscrito no tópico:", TOPIC);
+  });
+});
 
-      if (temp >= LIMIAR_ALERTA) {
-        tempElem.classList.add('alerta');
-        document.getElementById('alarmeAudio').play();
-        chart.data.datasets[0].borderColor = 'red';
-      } else {
-        tempElem.classList.remove('alerta');
-        chart.data.datasets[0].borderColor = 'yellow';
-      }
+client.on("message", (topic, message) => {
+  try {
+    const dados = JSON.parse(message.toString());
+    atualizarInterface(dados);
+  } catch (e) {
+    console.error("Erro ao processar mensagem:", e);
+  }
+});
 
-      let agora = new Date();
-      let tempoFormatado = agora.toLocaleTimeString();
+client.on("error", err => console.error("Erro MQTT:", err));
+client.on("reconnect", () => console.warn("Reconectando ao MQTT..."));
+client.on("offline", () => console.warn("MQTT offline"));
 
-      temperaturas.push(temp);
-      tempos.push(tempoFormatado);
+// ===============================
+// FUNÇÃO: Atualizar Interface
+// ===============================
+function atualizarInterface(dados) {
+  const { temperatura, azul, verde, vermelho, invalido, total } = dados;
 
-      if (temperaturas.length > 10) {
-        temperaturas.shift();
-        tempos.shift();
-      }
+  document.getElementById('azul').textContent = azul;
+  document.getElementById('verde').textContent = verde;
+  document.getElementById('vermelho').textContent = vermelho;
+  document.getElementById('invalido').textContent = invalido;
+  document.getElementById('total').textContent = total;
 
-      chart.update();
-    })
-    .catch(err => console.error("Erro ao buscar dados:", err));
+  const tempElem = document.getElementById('temp');
+  tempElem.textContent = temperatura.toFixed(2) + " °C";
+
+  if (temperatura >= LIMIAR_ALERTA) {
+    tempElem.classList.add('alerta');
+    document.getElementById('alarmeAudio').play();
+    chart.data.datasets[0].borderColor = 'red';
+  } else {
+    tempElem.classList.remove('alerta');
+    chart.data.datasets[0].borderColor = 'yellow';
+  }
+
+  const agora = new Date().toLocaleTimeString();
+  temperaturas.push(temperatura);
+  tempos.push(agora);
+
+  if (temperaturas.length > 10) {
+    temperaturas.shift();
+    tempos.shift();
+  }
+
+  chart.update();
 }
-
-setInterval(atualizarDados, 5000);
 </script>
 </body>
 </html>
