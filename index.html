@@ -3,183 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Industrial Smart Esteira</title>
+<title>SMART ESTEIRA - Monitoramento</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body{
-  background-color:#1a1a1a;
-  color:#fff;
-  font-family:Arial, Helvetica, sans-serif;
-  margin:0;
-  padding:0;
-  display:flex;
-  justify-content:center;
+body {
+  background-color: #0d1117;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: center;
 }
-.container{
-  width:90%;
-  max-width:1100px;
-  background:#2b2b2b;
-  padding:30px;
-  margin-top:30px;
-  border-radius:20px;
-  box-shadow:0 0 25px rgba(255,255,255,0.05);
-  position:relative;
+h1 {
+  margin-top: 25px;
+  font-size: 2.2em;
+  color: #00e6ff;
+  text-shadow: 0 0 20px #00e6ff;
+  font-weight: bold;
+  letter-spacing: 1px;
 }
-h1{
-  text-align:center;
-  color:#f2c200;
-  margin-bottom:40px;
+h2 {
+  margin-top: -10px;
+  font-size: 1.4em;
+  color: #00e6ff;
+  text-shadow: 0 0 10px #00e6ff;
+  font-weight: 600;
 }
-.led-panel{
-  display:flex;
-  flex-wrap:wrap;
-  justify-content:space-evenly;
-  align-items:center;
-  gap:16px;
-  margin-bottom:28px;
+.panel {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 30px 0;
+  flex-wrap: wrap;
 }
-.led{
-  width:110px;
-  height:110px;
-  border-radius:50%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-size:28px;
-  font-weight:bold;
-  color:#fff;
-  box-shadow:0 0 10px rgba(0,0,0,0.4);
+.card {
+  width: 140px;
+  height: 80px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.4);
 }
-.led-label{
-  text-align:center;
-  margin-bottom:5px;
-  font-weight:bold;
+.blue { background: #007bff; }
+.green { background: #28a745; }
+.red { background: #dc3545; }
+.black { background: #000; }
+.gray { background: #555; }
+
+.temp-card {
+  background: #f2a500;
+  color: #000;
+  display: inline-block;
+  padding: 20px 40px;
+  border-radius: 15px;
+  font-size: 1.3em;
+  font-weight: bold;
+  box-shadow: 0 0 20px rgba(242,165,0,0.5);
+  margin-bottom: 15px;
 }
-.blue{background:#007bff;}
-.green{background:#28a745;}
-.red{background:#dc3545;}
-.black{background:#000;}
-.gray{background:#555;}
-.card{
-  background:#1e1e1e;
-  border-radius:16px;
-  padding:20px;
-  text-align:center;
-  position:relative;
+.alerta {
+  animation: piscar 0.6s infinite alternate;
 }
-.card h2{
-  color:#f2c200;
-  margin-bottom:10px;
+@keyframes piscar {
+  from { background-color: #f2a500; }
+  to { background-color: #ff0000; color: #fff; }
 }
-.status{
-  text-align:center;
-  padding:6px 12px;
-  border-radius:10px;
-  font-weight:bold;
-  display:inline-block;
+#btnSilenciar {
+  display: none;
+  background: #555;
+  color: #fff;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
-.status.connected{background:#28a745;}
-.status.disconnected{background:#dc3545;}
-.status-buttons{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:10px;
-  justify-content:center;
-}
-canvas{
-  width:100%!important;
-  max-height:320px;
-}
-.alerta{
-  animation:piscar 0.6s infinite alternate;
-}
-@keyframes piscar{
-  from{color:#fff;}
-  to{color:#ff0000;}
-}
-button{
-  padding:6px 12px;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-  font-weight:bold;
-}
-button.silenciar{
-  background:#007bff;
-  color:#fff;
+#btnSilenciar:hover { background: #777; }
+
+.grafico {
+  width: 90%;
+  max-width: 900px;
+  height: 360px;
+  background: #161b22;
+  margin: 0 auto;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.4);
 }
 
-/* Quadrado de temperatura centralizado acima do gráfico */
-.temp-box{
-  position:absolute;
-  top:-50px;
-  left:50%;
-  transform:translateX(-50%);
-  background:#f2c200;
-  color:#000;
-  padding:12px 24px;
-  border-radius:12px;
-  font-weight:bold;
-  box-shadow:0 0 10px rgba(255,200,0,0.5);
-}
-
-/* Campo usuário */
-.user-info{
-  position:absolute;
-  bottom:10px;
-  right:20px;
-  font-size:0.9rem;
-  color:#ccc;
+.usuario {
+  text-align: right;
+  margin: 20px 40px;
+  color: #aaa;
+  font-size: 0.9em;
 }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>Painel Industrial Smart Esteira</h1>
+  <h1>SMART ESTEIRA</h1>
+  <h2>MONITORAMENTO</h2>
 
-  <div class="led-panel">
-    <div>
-      <div class="led-label">Qtde objetos azuis</div>
-      <div class="led blue" id="azul">0</div>
-    </div>
-    <div>
-      <div class="led-label">Qtde objetos verdes</div>
-      <div class="led green" id="verde">0</div>
-    </div>
-    <div>
-      <div class="led-label">Qtde objetos vermelhos</div>
-      <div class="led red" id="vermelho">0</div>
-    </div>
-    <div>
-      <div class="led-label">Objetos inválidos</div>
-      <div class="led black" id="invalido">0</div>
-    </div>
-    <div>
-      <div class="led-label">Total de objetos</div>
-      <div class="led gray" id="total">0</div>
-    </div>
+  <div class="panel">
+    <div class="card blue">Azul<br><span id="azul">0</span></div>
+    <div class="card green">Verde<br><span id="verde">0</span></div>
+    <div class="card red">Vermelho<br><span id="vermelho">0</span></div>
+    <div class="card black">Inválido<br><span id="invalido">0</span></div>
+    <div class="card gray">Total<br><span id="total">0</span></div>
   </div>
 
-  <div class="card">
-    <div class="temp-box">
-      🌡️ Motor: <span id="temp">--</span> °C
-    </div>
+  <div id="tempBox" class="temp-card">
+    Temperatura do Motor da Esteira<br><span id="temp">-- °C</span>
+  </div>
+  <br>
+  <button id="btnSilenciar">🔇 Silenciar Alerta</button>
+
+  <div class="grafico">
     <canvas id="grafico"></canvas>
-    <p>Última atualização: <span id="hora">--:--:--</span></p>
-    <div class="status-buttons">
-      <div class="status disconnected" id="status">Desconectado</div>
-      <button class="silenciar" id="btnSilenciar">Silenciar Alarme</button>
-    </div>
-    <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
   </div>
 
-  <div class="user-info">Usuário: <strong>Admin</strong></div>
-</div>
+  <div class="usuario">Usuário: <span id="usuario">--</span></div>
+
+  <audio id="alarme" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
 
 <script>
-// ===== CONFIGURAÇÃO MQTT =====
 const broker = "wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt";
 const options = {
   username: "edgar_thiz",
@@ -188,137 +140,97 @@ const options = {
   connectTimeout: 4000,
   reconnectPeriod: 5000
 };
-const client = mqtt.connect(broker, options);
 const topic = "smartesteira/dados";
+const client = mqtt.connect(broker, options);
 
-// ===== ELEMENTOS =====
 const s = id => document.getElementById(id);
-const leds = {azul:s("azul"),verde:s("verde"),vermelho:s("vermelho"),invalido:s("invalido"),total:s("total")};
-const statusDiv = s("status");
+const leds = { azul:s("azul"), verde:s("verde"), vermelho:s("vermelho"), invalido:s("invalido"), total:s("total") };
+const usuarioSpan = s("usuario");
 const tempSpan = s("temp");
-const horaSpan = s("hora");
+const tempBox = s("tempBox");
 const btnSilenciar = s("btnSilenciar");
 const alarme = s("alarme");
 
-// ===== GRÁFICO =====
 const ctx = document.getElementById("grafico").getContext("2d");
-const chartData = {
-  labels:[],
-  datasets:[{
-    label:"Temperatura (°C)",
-    borderColor:"#f2c200",
-    backgroundColor:"rgba(242,194,0,0.2)",
-    data:[],
-    tension:0.2,
-    fill:true
-  }]
-};
-const grafico = new Chart(ctx,{
+const chartData = { labels:[], datasets:[{ label:"Temperatura (°C)", borderColor:"#f2c200", backgroundColor:"rgba(242,194,0,0.2)", data:[], fill:true, tension:0.2 }] };
+const grafico = new Chart(ctx, {
   type:"line",
   data:chartData,
   options:{
-    responsive:true,
-    maintainAspectRatio:false,
     scales:{
-      x:{ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"}},
-      y:{min:0,suggestedMax:60,ticks:{color:"#ddd"},grid:{color:"rgba(255,255,255,0.1)"},title:{display:true,text:"Temperatura (°C)",color:"#bbb"}}
+      x:{ticks:{color:"#ccc"},grid:{color:"rgba(255,255,255,0.1)"}},
+      y:{min:0,suggestedMax:60,ticks:{color:"#ccc"},grid:{color:"rgba(255,255,255,0.1)"}}
     },
     plugins:{legend:{labels:{color:"#f2c200"}}}
   }
 });
 
-// ===== ALERTA =====
-let alarmeAtivo = false;
-let silenciar = false;
-let somAtivo = false;
-document.body.addEventListener("click",()=>{ somAtivo = true; },{once:true});
+let alarmeAtivo=false, silenciado=false, somAtivo=false;
+document.body.addEventListener("click",()=>{somAtivo=true;},{once:true});
 
 function atualizarCorGrafico(temp){
-  if(temp >= 50){
-    grafico.data.datasets[0].borderColor = "#ff0000";
-    grafico.data.datasets[0].backgroundColor = "rgba(255,0,0,0.2)";
+  if(temp>=50){
+    grafico.data.datasets[0].borderColor="#ff0000";
+    grafico.data.datasets[0].backgroundColor="rgba(255,0,0,0.2)";
   } else {
-    grafico.data.datasets[0].borderColor = "#f2c200";
-    grafico.data.datasets[0].backgroundColor = "rgba(242,194,0,0.2)";
+    grafico.data.datasets[0].borderColor="#f2c200";
+    grafico.data.datasets[0].backgroundColor="rgba(242,194,0,0.2)";
   }
   grafico.update();
 }
 
-function dispararAlarme(){
-  if(!silenciar && !alarmeAtivo){
-    if(somAtivo) alarme.play().catch(()=>console.log("Autoplay bloqueado"));
-    tempSpan.classList.add("alerta");
-    alarmeAtivo = true;
+function dispararAlerta(){
+  if(!alarmeAtivo && !silenciado){
+    tempBox.classList.add("alerta");
+    if(somAtivo) alarme.play().catch(()=>{});
+    btnSilenciar.style.display="inline-block";
+    alarmeAtivo=true;
   }
 }
 
-function pararAlarme(){
-  alarme.pause();
-  alarme.currentTime = 0;
-  tempSpan.classList.remove("alerta");
-  alarmeAtivo = false;
+function pararAlerta(){
+  alarme.pause(); alarme.currentTime=0;
+  tempBox.classList.remove("alerta");
+  btnSilenciar.style.display="none";
+  alarmeAtivo=false;
 }
 
-btnSilenciar.onclick = ()=>{
-  silenciar = true;
-  pararAlarme();
-};
+btnSilenciar.onclick=()=>{silenciado=true; pararAlerta();}
 
-// ===== FUNÇÕES MQTT =====
 client.on("connect",()=>{
-  statusDiv.textContent="Conectado";
-  statusDiv.className="status connected";
+  console.log("✅ Conectado ao HiveMQ");
   client.subscribe(topic);
 });
-client.on("reconnect",()=>{
-  statusDiv.textContent="Reconectando...";
-  statusDiv.className="status disconnected";
-});
-client.on("offline",()=>{
-  statusDiv.textContent="Desconectado";
-  statusDiv.className="status disconnected";
-});
-client.on("message",(t,p)=>{
+client.on("error",err=>console.error("Erro MQTT:",err));
+client.on("message",(t,msg)=>{
   if(t===topic){
-    try{
-      const dados = JSON.parse(p.toString());
-      atualizarDados(dados);
-    }catch(e){console.error("Erro JSON",e);}
+    const d=JSON.parse(msg.toString());
+    atualizar(d);
   }
 });
 
-// ===== ATUALIZAÇÃO DE DADOS =====
-let ultimaAtualizacao = 0;
-function atualizarDados(d){
-  const agora = Date.now();
-  if(agora - ultimaAtualizacao < 2000) return; // evita saturar
-  ultimaAtualizacao = agora;
-
+function atualizar(d){
   leds.azul.textContent=d.azul??0;
   leds.verde.textContent=d.verde??0;
   leds.vermelho.textContent=d.vermelho??0;
   leds.invalido.textContent=d.invalido??0;
   leds.total.textContent=d.total??0;
+  usuarioSpan.textContent=d.usuario||"--";
 
-  const temp = d.temperatura??0;
-  tempSpan.textContent=temp.toFixed(2);
-  const label = new Date().toLocaleTimeString("pt-BR",{hour12:false});
-  horaSpan.textContent=label;
-
+  const temp=d.temperatura??0;
+  tempSpan.textContent=temp.toFixed(1)+" °C";
   atualizarCorGrafico(temp);
 
-  if(chartData.labels.length===0 || chartData.labels[chartData.labels.length-1]!==label){
-    chartData.labels.push(label);
-    chartData.datasets[0].data.push(temp);
-    if(chartData.labels.length>10){
-      chartData.labels.shift();
-      chartData.datasets[0].data.shift();
-    }
-    grafico.update();
+  const label=new Date().toLocaleTimeString("pt-BR",{hour12:false});
+  chartData.labels.push(label);
+  chartData.datasets[0].data.push(temp);
+  if(chartData.labels.length>12){
+    chartData.labels.shift(); chartData.datasets[0].data.shift();
   }
+  grafico.update();
 
-  if(temp >= 50) dispararAlarme();
-  else pararAlarme();
+  if(temp>=50) dispararAlerta();
+  else pararAlerta();
 }
 </script>
 </body>
