@@ -7,51 +7,62 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f3f4f6;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #111827;
+      color: #f3f4f6;
+      margin: 0;
       text-align: center;
       padding: 20px;
     }
 
     h1 {
-      color: #1f2937;
-      margin-bottom: 20px;
+      color: #f9fafb;
+      font-size: 2em;
+      margin-bottom: 25px;
+    }
+
+    .painel {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 30px;
     }
 
     .card {
-      display: inline-block;
-      width: 130px;
+      width: 160px;
       height: 100px;
-      margin: 10px;
-      color: #fff;
-      font-size: 1.2em;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      border-radius: 12px;
+      color: white;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      font-size: 1.1em;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      font-weight: bold;
+      transition: transform 0.2s;
     }
 
-    .azul { background-color: #3b82f6; }
-    .verde { background-color: #22c55e; }
-    .vermelho { background-color: #ef4444; }
+    .card:hover {
+      transform: scale(1.05);
+    }
+
+    .azul { background-color: #2563eb; }
+    .verde { background-color: #16a34a; }
+    .vermelho { background-color: #dc2626; }
     .invalido { background-color: #6b7280; }
-
-    #temperatura {
-      font-size: 2em;
-      margin-top: 10px;
-    }
+    .temperatura { background-color: #f59e0b; }
 
     #alerta {
       display: none;
-      background-color: #ff0000;
+      background-color: #b91c1c;
       color: #fff;
-      padding: 10px;
-      font-weight: bold;
-      margin: 20px auto;
-      width: fit-content;
+      font-size: 1.2em;
+      padding: 12px 20px;
       border-radius: 8px;
+      margin: 15px auto;
+      width: fit-content;
       animation: piscar 1s infinite;
     }
 
@@ -60,24 +71,28 @@
     }
 
     #grafico {
-      width: 350px !important; /* Reduzido para 1/3 do tamanho original */
-      height: 180px !important;
+      width: 600px !important;
+      height: 300px !important;
       margin: 0 auto;
+      background-color: #1f2937;
+      border-radius: 10px;
+      padding: 15px;
     }
 
     #botaoSilenciar {
       display: none;
       margin-top: 15px;
       padding: 10px 20px;
-      background-color: #6b21a8;
+      background-color: #9333ea;
       color: white;
       border: none;
       border-radius: 8px;
       cursor: pointer;
+      font-weight: bold;
     }
 
     #botaoSilenciar:hover {
-      background-color: #9333ea;
+      background-color: #a855f7;
     }
   </style>
 </head>
@@ -85,23 +100,21 @@
 <body>
   <h1>Monitoramento - SMART ESTEIRA</h1>
 
+  <div class="painel">
+    <div class="card temperatura">Temperatura do Motor<br><span id="temperatura">0°C</span></div>
+    <div class="card azul">Azul<br><span id="azul">0</span></div>
+    <div class="card verde">Verde<br><span id="verde">0</span></div>
+    <div class="card vermelho">Vermelho<br><span id="vermelho">0</span></div>
+    <div class="card invalido">Inválido<br><span id="invalido">0</span></div>
+  </div>
+
   <div id="alerta">⚠️ ALTA TEMPERATURA – ACIONAR SIRENE!</div>
   <button id="botaoSilenciar" onclick="silenciar()">🔇 Silenciar Alerta</button>
 
   <canvas id="grafico"></canvas>
 
-  <div style="margin-top: 20px;">
-    <div class="card azul">Azul<br><span id="azul">0</span></div>
-    <div class="card verde">Verde<br><span id="verde">0</span></div>
-    <div class="card vermelho">Vermelho<br><span id="vermelho">0</span></div>
-    <div class="card invalido">Inválido<br><span id="invalido">0</span></div>
-    <div class="card" style="background-color:#1e293b;">Total<br><span id="total">0</span></div>
-  </div>
-
-  <div id="temperatura">🌡️ 0°C</div>
-
   <audio id="sirene" loop>
-    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/siren.ogg" type="audio/ogg">
   </audio>
 
   <script>
@@ -141,7 +154,15 @@
       options: {
         animation: false,
         scales: {
-          y: { min: 0, max: 100 }
+          x: { ticks: { color: "#e5e7eb" } },
+          y: {
+            min: 0, max: 100,
+            ticks: { color: "#e5e7eb" },
+            grid: { color: "#374151" }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: "#f3f4f6" } }
         }
       }
     });
@@ -173,15 +194,13 @@
     client.on("message", (topic, message) => {
       try {
         const dadosMQTT = JSON.parse(message.toString());
+        const temp = dadosMQTT.temperatura;
 
+        document.getElementById("temperatura").textContent = `${temp.toFixed(2)}°C`;
         document.getElementById("azul").textContent = dadosMQTT.azul;
         document.getElementById("verde").textContent = dadosMQTT.verde;
         document.getElementById("vermelho").textContent = dadosMQTT.vermelho;
         document.getElementById("invalido").textContent = dadosMQTT.invalido;
-        document.getElementById("total").textContent = dadosMQTT.total;
-
-        const temp = dadosMQTT.temperatura;
-        document.getElementById("temperatura").textContent = `🌡️ ${temp.toFixed(2)}°C`;
 
         const agora = new Date().toLocaleTimeString();
         dados.labels.push(agora);
@@ -192,7 +211,6 @@
           dados.datasets[0].data.shift();
         }
 
-        // Efeito visual no gráfico
         if (temp >= 50) {
           dados.datasets[0].borderColor = "red";
           ativarAlerta();
