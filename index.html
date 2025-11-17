@@ -8,7 +8,7 @@
 <!-- Chart.js para o gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Paho MQTT para MQTT via WebSocket (HiveMQ) -->
+<!-- Paho MQTT para WebSocket seguro -->
 <script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script>
 
 <style>
@@ -58,7 +58,7 @@ header h2 {
   border-radius: 8px;
   font-weight: 700;
   font-size: 13px;
-  background: #177a2f;
+  background: #b91d1d;
   color: #fff;
   box-shadow: 0 6px 18px rgba(0,0,0,0.5);
   min-width: 110px; text-align:center;
@@ -372,28 +372,10 @@ function drawGaugeImmediate(id, dispEl, value){
   dispEl.textContent = Math.round(value || 0) + " mA";
 }
 
-/* ========== MQTT (HIVEMQ CLOUD) ========== */
-/*
-  ESP32 publica no tópico:
-    smartesteira/dados
-
-  Exemplo de payload (o que seu código já envia):
-
-  {
-    "temperatura": 45.3,
-    "usuario": "Cleber",
-    "cor": "Azul",
-    "vermelho": 1,
-    "verde": 2,
-    "azul": 3,
-    "invalido": 0,
-    "total": 6
-  }
-*/
-
+/* ========= MQTT HiveMQ ========= */
 const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
-const mqttPort   = 8884;       // porta WebSocket segura do HiveMQ Cloud
-const mqttPath   = "/mqtt";    // path padrão para WS
+const mqttPort   = "8884";
+const mqttPath   = "/mqtt";
 const mqttUser   = "edgar_thiz";
 const mqttPass   = "Rg_1065736711@@";
 const mqttTopic  = "smartesteira/dados";
@@ -407,97 +389,62 @@ function setMqttStatus(text, color){
 }
 
 function connectMQTT(){
-  // client(host, port, path, clientId)
-  mqttClient = new Paho.MQTT.Client(mqttHost, mqttPort, mqttPath, mqttClientId);
+  // URL completa para conexão WebSocket segura
+  const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
+  mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
 
-  mqttClient.onConnectionLost = function(responseObject){
-    console.error("Conexão perdida:", responseObject.errorMessage);
+  mqttClient.onConnectionLost = () => {
     setMqttStatus("Desconectado", "#b91d1d");
-    setTimeout(connectMQTT, 5000);
+    setTimeout(connectMQTT, 3000);
   };
 
-  mqttClient.onMessageArrived = function(message){
+  mqttClient.onMessageArrived = (message) => {
     try {
-      const payload = message.payloadString;
-      const data = JSON.parse(payload);
+      const data = JSON.parse(message.payloadString);
 
-      // Temperatura (campo "temperatura" vindo do ESP32)
-      if (typeof data.temperatura === "number"){
+      if (data.temperatura !== undefined) {
         const t = data.temperatura;
-        tempEl.textContent = t.toFixed(2) + " °C";
+        tempEl.textContent = t.toFixed(1) + " °C";
 
-        if (t >= 50){
-          tempBox.classList.add("temp-alert");
-          tempEl.style.color = "#f2c200";
-          chart.data.datasets[0].borderColor     = "#ff2e2e";
-          chart.data.datasets[0].backgroundColor = "rgba(255,0,0,0.12)";
-        } else {
-          tempBox.classList.remove("temp-alert");
-          tempEl.style.color = "#c62828";
-          chart.data.datasets[0].borderColor     = "#f2c200";
-          chart.data.datasets[0].backgroundColor = "rgba(242,194,0,0.12)";
-        }
-
-        const label = new Date().toLocaleTimeString("pt-BR",{hour12:false});
+        const label = new Date().toLocaleTimeString();
         chartData.labels.push(label);
         chartData.datasets[0].data.push(t);
-        if (chartData.labels.length > 10){
+
+        if (chartData.labels.length > 10) {
           chartData.labels.shift();
           chartData.datasets[0].data.shift();
         }
         chart.update();
+
+        tempBox.classList.toggle("temp-alert", t >= 50);
       }
 
-      // Tensões (se você passar depois no JSON)
-      if (typeof data.tensaoA === "number"){
-        segA.textContent = data.tensaoA.toFixed(1) + " V";
-      }
-      if (typeof data.tensaoB === "number"){
-        segB.textContent = data.tensaoB.toFixed(1) + " V";
-      }
+      if (data.azul !== undefined) azulEl.textContent = data.azul;
+      if (data.verde !== undefined) verdeEl.textContent = data.verde;
+      if (data.vermelho !== undefined) vermelhoEl.textContent = data.vermelho;
+      if (data.invalido !== undefined) invalidoEl.textContent = data.invalido;
+      if (data.total !== undefined) totalEl.textContent = data.total;
 
-      // Correntes (mA) - gauges (se você implementar no ESP32 mais tarde)
-      if (typeof data.correnteA === "number"){
-        drawGaugeImmediate("gaugeA", dispA, data.correnteA);
-      }
-      if (typeof data.correnteB === "number"){
-        drawGaugeImmediate("gaugeB", dispB, data.correnteB);
-      }
-
-      // Contadores
-      if (typeof data.azul === "number")      azulEl.textContent     = data.azul;
-      if (typeof data.verde === "number")     verdeEl.textContent    = data.verde;
-      if (typeof data.vermelho === "number")  vermelhoEl.textContent = data.vermelho;
-      if (typeof data.invalido === "number")  invalidoEl.textContent = data.invalido;
-      if (typeof data.total === "number")     totalEl.textContent    = data.total;
-
-    } catch (e){
-      console.error("Erro ao processar MQTT:", e);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const options = {
+  mqttClient.connect({
     useSSL: true,
-    timeout: 5,
     userName: mqttUser,
     password: mqttPass,
-    onSuccess: function(){
-      console.log("Conectado ao HiveMQ Cloud (WebSocket)");
+    onSuccess: () => {
       setMqttStatus("Conectado", "#177a2f");
       mqttClient.subscribe(mqttTopic);
     },
-    onFailure: function(err){
-      console.error("Falha na conexão MQTT:", err.errorMessage);
+    onFailure: () => {
       setMqttStatus("Falha", "#b91d1d");
-      setTimeout(connectMQTT, 5000);
+      setTimeout(connectMQTT, 3000);
     }
-  };
-
-  setMqttStatus("Conectando...", "#555");
-  mqttClient.connect(options);
+  });
 }
 
-// Inicializa gauges em 0 e conecta MQTT quando a página carregar
 window.addEventListener("load", () => {
   drawGaugeImmediate("gaugeA", dispA, 0);
   drawGaugeImmediate("gaugeB", dispB, 0);
