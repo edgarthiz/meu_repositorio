@@ -8,8 +8,8 @@
 <!-- Chart.js para o gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Paho MQTT para WebSocket seguro -->
-<script src="https://unpkg.com/paho-mqtt/mqttws31.min.js"></script>
+<!-- Paho MQTT (WebSocket) corrigido -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
 
 <style>
 :root {
@@ -60,8 +60,8 @@ header h2 {
   font-size: 13px;
   background: #b91d1d;
   color: #fff;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
   min-width: 110px; text-align:center;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
 }
 .user-info {
   display:flex; align-items:center; gap:10px;
@@ -298,13 +298,6 @@ function drawGaugeImmediate(id, dispEl, value){
 
   ctx.clearRect(0,0,w,h);
 
-  // arco de fundo
-  ctx.beginPath();
-  ctx.arc(cx,cy,r,Math.PI,0,false);
-  ctx.strokeStyle = "#ccc";
-  ctx.lineWidth   = 2;
-  ctx.stroke();
-
   function mapValueToAngle(v){
     v = Math.max(0,Math.min(1000,v || 0));
     if(v <= 100) return Math.PI + (Math.PI*(v/100)*0.5);
@@ -320,37 +313,11 @@ function drawGaugeImmediate(id, dispEl, value){
     ctx.stroke();
   }
 
-  // zonas
   zone(0,100,"#28a745");
   zone(100,400,"#f2c200");
   zone(400,1000,"#ff2e2e");
 
-  // marcações
-  ctx.font = "10px Arial";
-  ctx.fillStyle = "#000";
-  ctx.textAlign = "center";
-
-  const marks = [0,20,40,60,80,100,200,300,400,600,800,1000];
-  marks.forEach(v=>{
-    const a  = mapValueToAngle(v);
-    const x  = cx + Math.cos(a)*(r-24),
-          y  = cy + Math.sin(a)*(r-24)+4;
-    ctx.fillText(v,x,y);
-
-    const x1 = cx + Math.cos(a)*(r-6),
-          y1 = cy + Math.sin(a)*(r-6),
-          x2 = cx + Math.cos(a)*(r-12),
-          y2 = cy + Math.sin(a)*(r-12);
-    ctx.beginPath();
-    ctx.moveTo(x1,y1);
-    ctx.lineTo(x2,y2);
-    ctx.strokeStyle = "#444";
-    ctx.lineWidth   = 1.2;
-    ctx.stroke();
-  });
-
-  // ponteiro
-  const a  = mapValueToAngle(value);
+  const a  = mapValueToAngle(value || 0);
   const px = cx + Math.cos(a)*(r-30),
         py = cy + Math.sin(a)*(r-30);
 
@@ -359,14 +326,6 @@ function drawGaugeImmediate(id, dispEl, value){
   ctx.lineTo(px,py);
   ctx.strokeStyle = "#c62828";
   ctx.lineWidth   = 3;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(cx,cy,6,0,Math.PI*2);
-  ctx.fillStyle   = "#111";
-  ctx.fill();
-  ctx.lineWidth   = 2;
-  ctx.strokeStyle = "#fff";
   ctx.stroke();
 
   dispEl.textContent = Math.round(value || 0) + " mA";
@@ -390,25 +349,43 @@ function setMqttStatus(text, color){
 
 function connectMQTT(){
   const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
-  console.log("Tentando conectar em:", wsUrl);
+  console.log("Conectando a:", wsUrl);
 
   mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
 
   mqttClient.onConnectionLost = (responseObject) => {
-    console.error("Conexão perdida:", responseObject.errorMessage);
+    console.error("MQTT desconectado:", responseObject.errorMessage);
     setMqttStatus("Desconectado", "#b91d1d");
     setTimeout(connectMQTT, 3000);
   };
 
   mqttClient.onMessageArrived = (message) => {
-    console.log("Mensagem MQTT recebida:", message.payloadString);
+    console.log("Mensagem recebida:", message.payloadString);
     try {
       const data = JSON.parse(message.payloadString);
 
-      // atualizar componentes
-      // ...
+      if (data.temperatura !== undefined) {
+        const t = data.temperatura;
+        tempEl.textContent = t.toFixed(1) + " °C";
+
+        chartData.labels.push(new Date().toLocaleTimeString());
+        chartData.datasets[0].data.push(t);
+
+        if (chartData.labels.length > 10) {
+          chartData.labels.shift();
+          chartData.datasets[0].data.shift();
+        }
+        chart.update();
+      }
+
+      azulEl.textContent = data.azul;
+      verdeEl.textContent = data.verde;
+      vermelhoEl.textContent = data.vermelho;
+      invalidoEl.textContent = data.invalido;
+      totalEl.textContent = data.total;
+    
     } catch (e) {
-      console.error("Erro ao processar JSON:", e);
+      console.error("Erro ao processar mensagem:", e);
     }
   };
 
@@ -416,20 +393,17 @@ function connectMQTT(){
     useSSL: true,
     userName: mqttUser,
     password: mqttPass,
-    timeout: 5,
     onSuccess: () => {
-      console.log("MQTT conectado com sucesso!");
       setMqttStatus("Conectado", "#177a2f");
       mqttClient.subscribe(mqttTopic);
     },
-    onFailure: (error) => {
-      console.error("Falha ao conectar MQTT:", error.errorMessage);
+    onFailure: (err) => {
+      console.error("Erro de conexão MQTT:", err.errorMessage);
       setMqttStatus("Falha", "#b91d1d");
       setTimeout(connectMQTT, 3000);
     }
   });
 }
-
 
 window.addEventListener("load", () => {
   drawGaugeImmediate("gaugeA", dispA, 0);
