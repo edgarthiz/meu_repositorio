@@ -1,119 +1,262 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>SMART ESTEIRA - Painel de Monitoramento Remoto</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEBUG MQTT - HiveMQ Cloud</title>
 
-<!-- Chart.js para o gráfico -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Cliente Paho MQTT (versão recomendada para HiveMQ Cloud) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
 
-<!-- Biblioteca Paho MQTT para WebSocket -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      margin-top: 0;
+      color: #38bdf8;
+    }
+    .card {
+      background: #1f2937;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .status.desconectado { background: #b91c1c; }
+    .status.conectando   { background: #6b7280; }
+    .status.conectado    { background: #15803d; }
+    .status.falha        { background: #b45309; }
 
-<style>
-/* ... (todo o CSS permanece igual ao que já te enviei antes) ... */
-</style>
+    button {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    label {
+      display: block;
+      margin-top: 6px;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      max-width: 480px;
+      padding: 6px 8px;
+      margin-top: 2px;
+      border-radius: 4px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    textarea {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+    .field-group {
+      margin-bottom: 8px;
+    }
+    .topic {
+      font-family: Consolas, monospace;
+      color: #fbbf24;
+    }
+  </style>
 </head>
 <body>
 
-<div class="container">
-  <!-- ... o restante do conteúdo HTML permanece igual ... -->
-</div>
+  <h1>Debug MQTT - HiveMQ Cloud</h1>
 
-<div class="user-box">
-  <div class="status-label">Status MQTT</div>
-  <div id="mqttStatus" class="status-mqtt">Desconectado</div>
-  <div class="user-info">
-    <img src="Cleber.jpeg" alt="Operador">
-    <div class="name">Operador: Cleber</div>
+  <div class="card">
+    <div>
+      <strong>Status MQTT:</strong>
+      <span id="status" class="status desconectado">Desconectado</span>
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="connectMQTT()">Conectar</button>
+      <button onclick="disconnectMQTT()">Desconectar</button>
+    </div>
   </div>
-</div>
 
-<script>
-/* ... referências a elementos DOM e setup do gráfico e gauges permanecem iguais ... */
+  <div class="card">
+    <h3>Configuração (usando HiveMQ Cloud)</h3>
+    <div class="field-group">
+      <label>URL WebSocket (fixo para teste):</label>
+      <input id="wsUrl" type="text" readonly
+             value="wss://a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud:8884/mqtt">
+    </div>
+    <div class="field-group">
+      <label>Usuário MQTT:</label>
+      <input id="user" type="text" value="edgar_thiz">
+    </div>
+    <div class="field-group">
+      <label>Senha MQTT:</label>
+      <input id="pass" type="password" value="Rg_1065736711@@">
+    </div>
+    <div class="field-group">
+      <label>Tópico para assinar:</label>
+      <input id="topic" type="text" value="smartesteira/dados">
+    </div>
+    <div class="field-group">
+      <label>Client ID (gerado automaticamente):</label>
+      <input id="clientId" type="text" readonly>
+    </div>
+  </div>
 
-/* ========= MQTT HiveMQ ========= */
-const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
-const mqttPort   = 8884;
-const mqttPath   = "/mqtt";
-const mqttUser   = "edgar_thiz";
-const mqttPass   = "Rg_1065736711@@";
-const mqttTopic  = "smartesteira/dados";
+  <div class="card">
+    <h3>Logs</h3>
+    <textarea id="log" readonly></textarea>
+  </div>
 
-const mqttClientId = "smartEsteiraWeb_" + Math.random().toString(16).substr(2,8);
-let mqttClient = null;
+  <script>
+    // ---------- Variáveis globais ----------
+    let client = null;
+    let isConnected = false;
 
-function setMqttStatus(text, color){
-  mqttStatusEl.textContent = text;
-  mqttStatusEl.style.background = color;
-}
+    const statusEl  = document.getElementById("status");
+    const logEl     = document.getElementById("log");
+    const wsUrlEl   = document.getElementById("wsUrl");
+    const userEl    = document.getElementById("user");
+    const passEl    = document.getElementById("pass");
+    const topicEl   = document.getElementById("topic");
+    const clientIdEl= document.getElementById("clientId");
 
-function connectMQTT(){
-  const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
-  console.log("Tentando conectar em:", wsUrl);
+    // Gera um ClientID aleatório ao carregar a página
+    const baseClientId = "DebugWeb_" + Math.random().toString(16).substr(2, 8);
+    clientIdEl.value = baseClientId;
 
-  mqttClient = new Paho.Client(wsUrl, mqttClientId);
+    function setStatus(text, cssClass) {
+      statusEl.textContent = text;
+      statusEl.className = "status " + cssClass;
+    }
 
-  mqttClient.onConnectionLost = (responseObject) => {
-    console.error("MQTT desconectado:", responseObject.errorMessage);
-    setMqttStatus("Desconectado", "#b91d1d");
-    setTimeout(connectMQTT, 3000);
-  };
+    function log(message) {
+      const ts = new Date().toLocaleTimeString("pt-BR", { hour12: false });
+      logEl.value += `[${ts}] ${message}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(message);
+    }
 
-  mqttClient.onMessageArrived = (message) => {
-    console.log("Mensagem recebida:", message.payloadString);
-    try {
-      const data = JSON.parse(message.payloadString);
+    // ---------- Callbacks MQTT ----------
+    function onConnectionLost(responseObject) {
+      isConnected = false;
+      if (responseObject.errorCode !== 0) {
+        log("onConnectionLost: " + responseObject.errorMessage + " (code " + responseObject.errorCode + ")");
+      } else {
+        log("onConnectionLost: conexão encerrada.");
+      }
+      setStatus("Desconectado", "desconectado");
+    }
 
-      if (data.temperatura !== undefined) {
-        const t = data.temperatura;
-        tempEl.textContent = t.toFixed(1) + " °C";
+    function onMessageArrived(message) {
+      log(`Mensagem recebida no tópico "${message.destinationName}": ${message.payloadString}`);
+    }
 
-        chartData.labels.push(new Date().toLocaleTimeString());
-        chartData.datasets[0].data.push(t);
+    function onConnectSuccess() {
+      isConnected = true;
+      setStatus("Conectado", "conectado");
+      log("Conectado com sucesso ao broker HiveMQ Cloud.");
 
-        if (chartData.labels.length > 10) {
-          chartData.labels.shift();
-          chartData.datasets[0].data.shift();
-        }
-        chart.update();
+      const topic = topicEl.value.trim();
+      if (topic) {
+        log('Assinando tópico: "' + topic + '"');
+        client.subscribe(topic, { qos: 0 });
+      }
+    }
+
+    function onConnectFailure(error) {
+      isConnected = false;
+      setStatus("Falha", "falha");
+      if (error && error.errorMessage) {
+        log("Falha na conexão: " + error.errorMessage);
+      } else {
+        log("Falha na conexão (erro desconhecido).");
+      }
+    }
+
+    // ---------- Funções de conexão ----------
+    function connectMQTT() {
+      const wsUrl   = wsUrlEl.value.trim();
+      const user    = userEl.value.trim();
+      const pass    = passEl.value;
+      const clientId= clientIdEl.value.trim() || ("DebugWeb_" + Math.random().toString(16).substr(2,8));
+
+      if (!wsUrl) {
+        log("URL WebSocket vazia.");
+        return;
       }
 
-      azulEl.textContent = data.azul;
-      verdeEl.textContent = data.verde;
-      vermelhoEl.textContent = data.vermelho;
-      invalidoEl.textContent = data.invalido;
-      totalEl.textContent = data.total;
+      log("Tentando conectar em: " + wsUrl);
+      setStatus("Conectando...", "conectando");
 
-    } catch (e) {
-      console.error("Erro ao processar mensagem:", e);
+      try {
+        // IMPORTANTE: usando padrão recomendado pelo HiveMQ:
+        // new Paho.MQTT.Client("wss://....:8884/mqtt", "clientId")
+        client = new Paho.MQTT.Client(wsUrl, clientId);
+
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        const options = {
+          useSSL: true,
+          userName: user,
+          password: pass,
+          timeout: 10,
+          cleanSession: true,
+          onSuccess: onConnectSuccess,
+          onFailure: onConnectFailure
+        };
+
+        client.connect(options);
+      } catch (e) {
+        setStatus("Falha", "falha");
+        log("Exceção ao tentar conectar: " + e);
+      }
     }
-  };
 
-  mqttClient.connect({
-    useSSL: true,
-    userName: mqttUser,
-    password: mqttPass,
-    onSuccess: () => {
-      console.log("Conectado ao HiveMQ WebSocket!");
-      setMqttStatus("Conectado", "#177a2f");
-      mqttClient.subscribe(mqttTopic);
-    },
-    onFailure: (err) => {
-      console.error("Erro na conexão MQTT:", err.errorMessage);
-      setMqttStatus("Falha", "#b91d1d");
-      setTimeout(connectMQTT, 3000);
+    function disconnectMQTT() {
+      if (client && isConnected) {
+        log("Desconectando manualmente...");
+        client.disconnect();
+        isConnected = false;
+        setStatus("Desconectado", "desconectado");
+      } else {
+        log("Cliente não está conectado.");
+      }
     }
-  });
-}
 
-window.addEventListener("load", () => {
-  drawGaugeImmediate("gaugeA", dispA, 0);
-  drawGaugeImmediate("gaugeB", dispB, 0);
-  connectMQTT();
-});
-</script>
+    // Conecta automaticamente ao carregar a página (pode comentar se quiser manual)
+    window.addEventListener("load", () => {
+      log("Página de debug carregada. Clique em 'Conectar' se não conectar automaticamente.");
+      connectMQTT();
+    });
+  </script>
 
 </body>
 </html>
