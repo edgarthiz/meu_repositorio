@@ -8,216 +8,17 @@
 <!-- Chart.js para o gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Paho MQTT (WebSocket) corrigido -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+<!-- Biblioteca Paho MQTT para WebSocket -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.js"></script>
 
 <style>
-:root {
-  --bg:#0f1112;
-  --panel:#18191b;
-  --accent:#f2c200;
-  --text:#ffffff;
-  --danger:#ff2e2e;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body {
-  background: var(--bg);
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  color: var(--text);
-  display: flex;
-  justify-content: center;
-  padding: 20px;
-}
-.container { width:95%; max-width:1280px; }
-
-/* ===== CABEÇALHO ===== */
-header { text-align: center; margin-bottom: 10px; }
-header h1 {
-  color: #00d1ff; font-size: 40px; margin: 0;
-  text-shadow: 0 0 20px #00d1ff;
-}
-header h2 {
-  color: #00d1ff; font-size: 18px; margin: 6px 0 16px 0;
-  text-shadow: 0 0 15px #00d1ff;
-}
-
-/* ===== STATUS E USUÁRIO ===== */
-.user-box {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 50;
-}
-.status-label { font-size: 13px; color:#ccc; font-weight:700; }
-.status-mqtt {
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 13px;
-  background: #b91d1d;
-  color: #fff;
-  min-width: 110px; text-align:center;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-}
-.user-info {
-  display:flex; align-items:center; gap:10px;
-  background:#1b1c1e; border-radius:10px; padding:8px 10px;
-  border:2px solid rgba(255,255,255,0.06);
-  box-shadow:0 6px 14px rgba(0,0,0,0.5);
-}
-.user-info img{ width:48px; height:48px; border-radius:50%; object-fit:cover; }
-.user-info .name{ font-weight:700; font-size:14px; color:#fff; }
-
-/* ===== CONTADORES ===== */
-.counters {
-  display:flex; justify-content:center; gap:12px; margin-bottom:12px;
-}
-.counter{
-  min-width:120px; text-align:center; border-radius:10px; padding:10px 8px;
-  font-weight:700; color:#fff; box-shadow:0 0 10px rgba(255,255,255,0.06); border:2px solid #fff;
-}
-.counter.blue{background:#1677ff}
-.counter.green{background:#21893a}
-.counter.red{background:#b91d1d}
-.counter.black{background:#000}
-.counter.gray{background:#555}
-
-/* ===== TEMPERATURA ===== */
-.temp-box{
-  background:var(--accent);
-  color:#111;
-  padding:10px 20px;
-  border-radius:12px;
-  text-align:center;
-  box-shadow:0 8px 26px rgba(242,194,0,0.25);
-  width:fit-content;
-  margin: 0 auto 10px auto;
-  transition: all .25s ease;
-}
-.temp-box .label{ font-weight:800; font-size:14px; }
-.temp-box .value{ color:#c62828; font-weight:900; font-size:22px; margin-top:6px; transition: color .2s ease; }
-
-/* ===== MAIN ROW ===== */
-.main-row {
-  display:flex;
-  justify-content:center;
-  align-items:flex-end;
-  gap:20px;
-  margin-top: 10px;
-}
-
-/* ===== INSTRUMENTOS ===== */
-.instrument-wrapper { display:flex; flex-direction:column; align-items:center; gap:6px; width:260px; }
-.instrument-label { font-weight:700; color:#ccc; text-transform:uppercase; margin-bottom:6px; text-align:center; }
-.instrument {
-  width:100%;
-  background:var(--panel); border-radius:12px; padding:12px; text-align:center;
-  box-shadow:0 6px 18px rgba(0,0,0,0.6);
-  display:flex; flex-direction:column; align-items:center; gap:8px;
-}
-.seg7{
-  background:#000; color:var(--accent); font-family:'Courier New', monospace; font-size:28px;
-  font-weight:800; border-radius:8px; padding:10px 0; width:86%;
-  box-shadow: inset 0 -6px 18px rgba(0,0,0,0.6);
-}
-.unit{ color:#ddd; font-weight:700; font-size:13px; }
-
-/* ===== GAUGE ===== */
-.gauge-container{
-  position:relative;
-  width:86%;
-  height:140px;
-  background:#fff;
-  border-radius:8px;
-  padding:6px;
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.25), 0 6px 12px rgba(0,0,0,0.4);
-}
-.gauge{ width:100%; height:100%; display:block; }
-.gauge-display{
-  position:absolute; top:6px; left:50%; transform:translateX(-50%);
-  background:#000; color:var(--accent);
-  font-size:16px;
-  font-family:'Courier New', monospace;
-  padding:4px 8px; border-radius:5px;
-  box-shadow: inset 0 0 8px rgba(255,255,255,0.12),
-              0 0 10px rgba(255,215,0,0.4);
-}
-
-/* ===== CHART ===== */
-.chart-wrap {
-  flex: 1;
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-  height: 280px;
-}
-
-/* ===== ALERTA VISUAL ===== */
-.temp-alert { animation: pulseTemp 0.8s infinite; box-shadow:0 0 28px rgba(255,0,0,0.6); }
-@keyframes pulseTemp{
-  0% { background:#ff4c4c; }
-  50% { background:#ff1c1c; }
-  100% { background:#ff4c4c; }
-}
+/* ... (todo o CSS permanece igual ao que já te enviei antes) ... */
 </style>
 </head>
 <body>
 
 <div class="container">
-  <header>
-    <h1>SMART ESTEIRA</h1>
-    <h2>PAINEL DE MONITORAMENTO REMOTO</h2>
-  </header>
-
-  <div class="counters">
-    <div class="counter blue"><div>Azul</div><div id="azul">0</div></div>
-    <div class="counter green"><div>Verde</div><div id="verde">0</div></div>
-    <div class="counter red"><div>Vermelho</div><div id="vermelho">0</div></div>
-    <div class="counter black"><div>Inválido</div><div id="invalido">0</div></div>
-    <div class="counter gray"><div>Total</div><div id="total">0</div></div>
-  </div>
-
-  <div class="temp-box" id="tempBox">
-    <div class="label">Temperatura do Motor da Esteira</div>
-    <div class="value" id="temp">--.-- °C</div>
-  </div>
-
-  <div class="main-row">
-    <div class="instrument-wrapper">
-      <div class="instrument-label">Braço Robótico de Entrada</div>
-      <div class="instrument">
-        <div class="unit">Tensão</div>
-        <div class="seg7" id="segA">--.- V</div>
-        <div class="unit">Corrente (mA)</div>
-        <div class="gauge-container">
-          <canvas id="gaugeA" class="gauge"></canvas>
-          <div class="gauge-display" id="dispA">--- mA</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="chart-wrap">
-      <canvas id="tempChart"></canvas>
-    </div>
-
-    <div class="instrument-wrapper">
-      <div class="instrument-label">Braço Robótico de Saída</div>
-      <div class="instrument">
-        <div class="unit">Tensão</div>
-        <div class="seg7" id="segB">--.- V</div>
-        <div class="unit">Corrente (mA)</div>
-        <div class="gauge-container">
-          <canvas id="gaugeB" class="gauge"></canvas>
-          <div class="gauge-display" id="dispB">--- mA</div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- ... o restante do conteúdo HTML permanece igual ... -->
 </div>
 
 <div class="user-box">
@@ -230,110 +31,11 @@ header h2 {
 </div>
 
 <script>
-const el = id => document.getElementById(id);
-
-const ctx  = el('tempChart').getContext('2d');
-const segA = el('segA'),
-      segB = el('segB');
-const dispA = el('dispA'),
-      dispB = el('dispB');
-const tempBox = el('tempBox'),
-      tempEl  = el('temp');
-
-const azulEl     = el('azul');
-const verdeEl    = el('verde');
-const vermelhoEl = el('vermelho');
-const invalidoEl = el('invalido');
-const totalEl    = el('total');
-const mqttStatusEl = el('mqttStatus');
-
-/* ===== GRÁFICO ===== */
-const chartData = {
-  labels: [],
-  datasets: [{
-    label: "Temperatura (°C)",
-    data: [],
-    borderColor: "#f2c200",
-    backgroundColor: "rgba(242,194,0,0.1)",
-    tension: .2,
-    fill: true
-  }]
-};
-
-const chart = new Chart(ctx, {
-  type: "line",
-  data: chartData,
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: { ticks: { color: "#ccc" } },
-      y: {
-        ticks: { color: "#ccc" },
-        min: 0,
-        max: 70
-      }
-    },
-    plugins: {
-      legend: { labels: { color: "#f2c200" } }
-    }
-  }
-});
-
-/* ===== GAUGE ===== */
-function drawGaugeImmediate(id, dispEl, value){
-  const c   = el(id),
-        ctx = c.getContext('2d');
-
-  const DPR = window.devicePixelRatio || 1;
-  c.width  = c.clientWidth * DPR;
-  c.height = c.clientHeight * DPR;
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-
-  const w  = c.clientWidth,
-        h  = c.clientHeight,
-        cx = w/2,
-        cy = h*0.9,
-        r  = Math.min(w,h*2)/2.3;
-
-  ctx.clearRect(0,0,w,h);
-
-  function mapValueToAngle(v){
-    v = Math.max(0,Math.min(1000,v || 0));
-    if(v <= 100) return Math.PI + (Math.PI*(v/100)*0.5);
-    if(v <= 400) return Math.PI + Math.PI*0.5 + Math.PI*0.25*((v-100)/300);
-    return Math.PI + Math.PI*0.75 + Math.PI*0.25*((v-400)/600);
-  }
-
-  function zone(s,e,color){
-    ctx.beginPath();
-    ctx.arc(cx,cy,r-10,mapValueToAngle(s),mapValueToAngle(e),false);
-    ctx.lineWidth   = 10;
-    ctx.strokeStyle = color;
-    ctx.stroke();
-  }
-
-  zone(0,100,"#28a745");
-  zone(100,400,"#f2c200");
-  zone(400,1000,"#ff2e2e");
-
-  const a  = mapValueToAngle(value || 0);
-  const px = cx + Math.cos(a)*(r-30),
-        py = cy + Math.sin(a)*(r-30);
-
-  ctx.beginPath();
-  ctx.moveTo(cx,cy);
-  ctx.lineTo(px,py);
-  ctx.strokeStyle = "#c62828";
-  ctx.lineWidth   = 3;
-  ctx.stroke();
-
-  dispEl.textContent = Math.round(value || 0) + " mA";
-}
+/* ... referências a elementos DOM e setup do gráfico e gauges permanecem iguais ... */
 
 /* ========= MQTT HiveMQ ========= */
 const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
-const mqttPort   = "8884";
+const mqttPort   = 8884;
 const mqttPath   = "/mqtt";
 const mqttUser   = "edgar_thiz";
 const mqttPass   = "Rg_1065736711@@";
@@ -349,9 +51,9 @@ function setMqttStatus(text, color){
 
 function connectMQTT(){
   const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
-  console.log("Conectando a:", wsUrl);
+  console.log("Tentando conectar em:", wsUrl);
 
-  mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
+  mqttClient = new Paho.Client(wsUrl, mqttClientId);
 
   mqttClient.onConnectionLost = (responseObject) => {
     console.error("MQTT desconectado:", responseObject.errorMessage);
@@ -383,7 +85,7 @@ function connectMQTT(){
       vermelhoEl.textContent = data.vermelho;
       invalidoEl.textContent = data.invalido;
       totalEl.textContent = data.total;
-    
+
     } catch (e) {
       console.error("Erro ao processar mensagem:", e);
     }
@@ -394,11 +96,12 @@ function connectMQTT(){
     userName: mqttUser,
     password: mqttPass,
     onSuccess: () => {
+      console.log("Conectado ao HiveMQ WebSocket!");
       setMqttStatus("Conectado", "#177a2f");
       mqttClient.subscribe(mqttTopic);
     },
     onFailure: (err) => {
-      console.error("Erro de conexão MQTT:", err.errorMessage);
+      console.error("Erro na conexão MQTT:", err.errorMessage);
       setMqttStatus("Falha", "#b91d1d");
       setTimeout(connectMQTT, 3000);
     }
