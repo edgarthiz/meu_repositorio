@@ -389,44 +389,26 @@ function setMqttStatus(text, color){
 }
 
 function connectMQTT(){
-  // URL completa para conexão WebSocket segura
   const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
+  console.log("Tentando conectar em:", wsUrl);
+
   mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
 
-  mqttClient.onConnectionLost = () => {
+  mqttClient.onConnectionLost = (responseObject) => {
+    console.error("Conexão perdida:", responseObject.errorMessage);
     setMqttStatus("Desconectado", "#b91d1d");
     setTimeout(connectMQTT, 3000);
   };
 
   mqttClient.onMessageArrived = (message) => {
+    console.log("Mensagem MQTT recebida:", message.payloadString);
     try {
       const data = JSON.parse(message.payloadString);
 
-      if (data.temperatura !== undefined) {
-        const t = data.temperatura;
-        tempEl.textContent = t.toFixed(1) + " °C";
-
-        const label = new Date().toLocaleTimeString();
-        chartData.labels.push(label);
-        chartData.datasets[0].data.push(t);
-
-        if (chartData.labels.length > 10) {
-          chartData.labels.shift();
-          chartData.datasets[0].data.shift();
-        }
-        chart.update();
-
-        tempBox.classList.toggle("temp-alert", t >= 50);
-      }
-
-      if (data.azul !== undefined) azulEl.textContent = data.azul;
-      if (data.verde !== undefined) verdeEl.textContent = data.verde;
-      if (data.vermelho !== undefined) vermelhoEl.textContent = data.vermelho;
-      if (data.invalido !== undefined) invalidoEl.textContent = data.invalido;
-      if (data.total !== undefined) totalEl.textContent = data.total;
-
+      // atualizar componentes
+      // ...
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao processar JSON:", e);
     }
   };
 
@@ -434,16 +416,20 @@ function connectMQTT(){
     useSSL: true,
     userName: mqttUser,
     password: mqttPass,
+    timeout: 5,
     onSuccess: () => {
+      console.log("MQTT conectado com sucesso!");
       setMqttStatus("Conectado", "#177a2f");
       mqttClient.subscribe(mqttTopic);
     },
-    onFailure: () => {
+    onFailure: (error) => {
+      console.error("Falha ao conectar MQTT:", error.errorMessage);
       setMqttStatus("Falha", "#b91d1d");
       setTimeout(connectMQTT, 3000);
     }
   });
 }
+
 
 window.addEventListener("load", () => {
   drawGaugeImmediate("gaugeA", dispA, 0);
