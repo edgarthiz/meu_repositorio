@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMART ESTEIRA - Painel de Monitoramento</title>
 
-<!-- Chart.js para o gráfico -->
+<!-- Chart.js para gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Biblioteca Paho MQTT -->
+<!-- MQTT via WebSocket seguro (Paho) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 
 <style>
-/* (CSS idêntico ao anterior) */
+/* Estilos do painel - mesmo CSS da versão anterior */
 :root {
   --bg:#0f1112;
   --panel:#18191b;
@@ -20,7 +20,7 @@
   --text:#ffffff;
   --danger:#ff2e2e;
 }
-*{box-sizing:border-box;margin:0;padding:0}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   background: var(--bg);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
@@ -149,32 +149,42 @@ const mqttUser = "edgar_thiz", mqttPass = "Rg_1065736711@@";
 const mqttTopic = "smartesteira/dados";
 const mqttClientId = "smartEsteiraWeb_" + Math.random().toString(16).substr(2,8);
 
-const chartData = {labels:[],datasets:[{label:"Temp (°C)",data:[],borderColor:"#f2c200"}]};
-const chart = new Chart(ctx,{type:"line",data:chartData,options:{responsive:true,scales:{y:{suggestedMax:80}}}});
+const chartData = { labels: [], datasets: [{ label: "Temperatura (°C)", data: [], borderColor: "#f2c200", fill: false }] };
+const chart = new Chart(ctx, { type: "line", data: chartData, options: { responsive: true, scales: { y: { suggestedMax: 80 }}}});
 
 let mqttClient;
 
 function drawGauge(id, displayEl, value){
-  const c = el(id); const ctx = c.getContext('2d');
-  c.width = c.clientWidth; c.height = c.clientHeight;
+  const c = el(id);
+  const ctx = c.getContext('2d');
+  c.width = c.clientWidth;
+  c.height = c.clientHeight;
   ctx.clearRect(0,0,c.width,c.height);
-  const center = {x:c.width/2, y:c.height*0.9}, radius = c.height/2.2;
+  const center = {x: c.width / 2, y: c.height * 0.9};
+  const radius = c.height / 2.2;
   ctx.beginPath(); ctx.arc(center.x, center.y, radius, Math.PI, 0); ctx.stroke();
   const angle = Math.PI + (value/1000 * Math.PI);
-  ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(center.x,ctx.height); ctx.lineTo(center.x+Math.cos(angle)*radius,center.y+Math.sin(angle)*radius); ctx.stroke();
-  displayEl.textContent = Math.round(value)+" mA";
+  ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(center.x, c.height); ctx.lineTo(center.x + Math.cos(angle) * radius, center.y + Math.sin(angle) * radius); ctx.stroke();
+  displayEl.textContent = Math.round(value) + " mA";
 }
 
 function updateUI(data){
   const t = data.temperatura;
-  tempEl.innerText = t.toFixed(1)+" °C";
-  if(t >= 50){ tempBox.classList.add('temp-alert'); } else { tempBox.classList.remove('temp-alert'); }
-  
+  tempEl.innerText = t.toFixed(1) + " °C";
+  if (t >= 50) {
+    tempBox.classList.add('temp-alert');
+  } else {
+    tempBox.classList.remove('temp-alert');
+  }
+
   chartData.labels.push(new Date().toLocaleTimeString());
   chartData.datasets[0].data.push(t);
-  if(chartData.labels.length > 12){ chartData.labels.shift(); chartData.datasets[0].data.shift(); }
+  if (chartData.labels.length > 12) {
+    chartData.labels.shift(); chartData.datasets[0].data.shift();
+  }
   chart.update();
-  
+
   azulEl.textContent = data.azul;
   verdeEl.textContent = data.verde;
   vermelhoEl.textContent = data.vermelho;
@@ -183,18 +193,43 @@ function updateUI(data){
 }
 
 function connectMQTT(){
-  mqttClient = new Paho.Client(`wss://${mqttHost}:8884/mqtt`, mqttClientId);
-  mqttClient.onConnectionLost = () => { mqttStatusEl.innerText = "Desconectado"; mqttStatusEl.style.background = "#b91d1d"; };
-  mqttClient.onMessageArrived = msg => { console.log("MQTT:", msg.payloadString); updateUI(JSON.parse(msg.payloadString)); };
+  mqttClient = new Paho.MQTT.Client(`wss://${mqttHost}:8884/mqtt`, mqttClientId);
+
+  mqttClient.onConnectionLost = (err) => {
+    console.error("MQTT desconectado:", err.errorMessage);
+    mqttStatusEl.innerText = "Desconectado";
+    mqttStatusEl.style.background = "#b91d1d";
+  };
+
+  mqttClient.onMessageArrived = (msg) => {
+    console.log("MQTT mensagem:", msg.payloadString);
+    try {
+      const data = JSON.parse(msg.payloadString);
+      updateUI(data);
+      drawGauge('gaugeA', el('dispA'), 0); // Opcional
+      drawGauge('gaugeB', el('dispB'), 0); // Opcional
+    } catch(e) {
+      console.error("Erro ao parsear mensagem:", e);
+    }
+  };
+
   mqttClient.connect({
-    useSSL:true, userName:mqttUser, password:mqttPass,
-    onSuccess:() => { 
-      mqttStatusEl.innerText = "Conectado"; mqttStatusEl.style.background = "#15803d";
-      mqttClient.subscribe(mqttTopic); 
+    useSSL: true,
+    userName: mqttUser,
+    password: mqttPass,
+    onSuccess: () => {
+      console.log("MQTT conectado!");
+      mqttStatusEl.innerText = "Conectado";
+      mqttStatusEl.style.background = "#15803d";
+      mqttClient.subscribe(mqttTopic);
       drawGauge('gaugeA', el('dispA'), 0);
       drawGauge('gaugeB', el('dispB'), 0);
     },
-    onFailure:()=>{ mqttStatusEl.innerText = "Falha"; mqttStatusEl.style.background = "#b91d1d"; }
+    onFailure: (err) => {
+      console.error("Falha na conexão MQTT:", err.errorMessage);
+      mqttStatusEl.innerText = "Falha";
+      mqttStatusEl.style.background = "#b91d1d";
+    }
   });
 }
 
