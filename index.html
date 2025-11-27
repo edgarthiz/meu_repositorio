@@ -157,12 +157,19 @@ header h2 {
   height: 280px;
 }
 
-/* ===== ALERTA VISUAL ===== */
+/* ===== ALERTA VISUAL DE TEMPERATURA ===== */
 .temp-alert { animation: pulseTemp 0.8s infinite; box-shadow:0 0 28px rgba(255,0,0,0.6); }
 @keyframes pulseTemp{
   0% { background:#ff4c4c; }
   50% { background:#ff1c1c; }
   100% { background:#ff4c4c; }
+}
+
+/* ===== OVERLAY DE PÂNICO ===== */
+@keyframes pulsePanic {
+  0%   { background: rgba(255,0,0,0.85); }
+  50%  { background: rgba(255,0,0,0.65); }
+  100% { background: rgba(255,0,0,0.85); }
 }
 </style>
 </head>
@@ -227,6 +234,32 @@ header h2 {
     <img src="Cleber.jpeg" alt="Operador">
     <div class="name">Operador: Cleber</div>
   </div>
+</div>
+
+<!-- ===== OVERLAY DE PÂNICO (NOVO) ===== -->
+<div id="panicOverlay" style="
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(255,0,0,0.85);
+  z-index:9999;
+  backdrop-filter:blur(3px);
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  animation:pulsePanic 0.8s infinite;
+">
+  <h1 style="
+    color:white;
+    font-size:42px;
+    text-shadow:0 0 12px #000;
+    font-weight:900;
+  ">
+    ⚠ EMERGÊNCIA – BOTÃO DE PÂNICO ACIONADO ⚠
+  </h1>
 </div>
 
 <script>
@@ -404,8 +437,20 @@ function connectMQTT(){
   });
 }
 
+/* ========= CONTROLE DO OVERLAY DE PÂNICO (NOVO) ========= */
+function setPanicOverlay(estado) {
+  const ov = document.getElementById("panicOverlay");
+  ov.style.display = estado ? "flex" : "none";
+}
+
 /* ========= ATUALIZA TELA COM DADOS DO ESP ========= */
 function updateUI(d){
+
+  // === ALERTA DE PÂNICO (NOVO) ===
+  if (typeof d.panico !== "undefined") {
+    setPanicOverlay(d.panico === true);
+  }
+
   // temperatura
   if(typeof d.temperatura === "number"){
     tempEl.textContent = d.temperatura.toFixed(1)+" °C";
@@ -417,6 +462,7 @@ function updateUI(d){
       chartData.datasets[0].data.shift();
     }
     chart.update();
+
 
 
 
@@ -449,14 +495,14 @@ chart.update('none'); // Atualiza imediatamente a visualização
   if("invalido" in d)  invalidoEl.textContent  = d.invalido;
   if("total" in d)     totalEl.textContent     = d.total;
 
-  // tensões (se você passar depois no JSON)
+  // tensões
   if(typeof d.tensaoA === "number") segA.textContent = d.tensaoA.toFixed(1)+" V";
   else segA.textContent="--.- V";
 
   if(typeof d.tensaoB === "number") segB.textContent = d.tensaoB.toFixed(1)+" V";
   else segB.textContent="--.- V";
 
-  // correntes (se ainda não enviar, fica 0 mA mas gauge aparece certo)
+  // correntes
   drawGaugeImmediate("gaugeA", dispA, d.correnteA || 0);
   drawGaugeImmediate("gaugeB", dispB, d.correnteB || 0);
 }
