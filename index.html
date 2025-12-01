@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMART ESTEIRA - Painel de Monitoramento Remoto</title>
 
-<!-- Chart.js para o gráfico -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Paho MQTT (WebSocket) -->
+<!-- Paho MQTT WebSocket -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 
 <style>
@@ -30,7 +30,7 @@ body {
 }
 .container { width:95%; max-width:1280px; }
 
-/* ===== CABEÇALHO ===== */
+/* HEADER */
 header { text-align: center; margin-bottom: 10px; }
 header h1 {
   color: #00d1ff; font-size: 40px; margin: 0;
@@ -41,7 +41,7 @@ header h2 {
   text-shadow: 0 0 15px #00d1ff;
 }
 
-/* ===== STATUS E USUÁRIO ===== */
+/* USER STATUS (CORRIGIDO) */
 .user-box {
   position: fixed;
   top: 18px;
@@ -72,7 +72,7 @@ header h2 {
 .user-info img{ width:48px; height:48px; border-radius:50%; object-fit:cover; }
 .user-info .name{ font-weight:700; font-size:14px; color:#fff; }
 
-/* ===== CONTADORES ===== */
+/* CONTADORES */
 .counters {
   display:flex; justify-content:center; gap:12px; margin-bottom:12px;
 }
@@ -86,7 +86,7 @@ header h2 {
 .counter.black{background:#000}
 .counter.gray{background:#555}
 
-/* ===== TEMPERATURA ===== */
+/* TEMPERATURA */
 .temp-box{
   background:var(--accent);
   color:#111;
@@ -96,12 +96,11 @@ header h2 {
   box-shadow:0 8px 26px rgba(242,194,0,0.25);
   width:fit-content;
   margin: 0 auto 10px auto;
-  transition: all .25s ease;
 }
 .temp-box .label{ font-weight:800; font-size:14px; }
-.temp-box .value{ color:#c62828; font-weight:900; font-size:22px; margin-top:6px; transition: color .2s ease; }
+.temp-box .value{ color:#c62828; font-weight:900; font-size:22px; margin-top:6px; }
 
-/* ===== MAIN ROW ===== */
+/* MAIN */
 .main-row {
   display:flex;
   justify-content:center;
@@ -110,7 +109,7 @@ header h2 {
   margin-top: 10px;
 }
 
-/* ===== INSTRUMENTOS ===== */
+/* INSTRUMENTOS */
 .instrument-wrapper { display:flex; flex-direction:column; align-items:center; gap:6px; width:260px; }
 .instrument-label { font-weight:700; color:#ccc; text-transform:uppercase; margin-bottom:6px; text-align:center; }
 .instrument {
@@ -126,7 +125,7 @@ header h2 {
 }
 .unit{ color:#ddd; font-weight:700; font-size:13px; }
 
-/* ===== GAUGE ===== */
+/* GAUGES */
 .gauge-container{
   position:relative;
   width:86%;
@@ -143,11 +142,9 @@ header h2 {
   font-size:16px;
   font-family:'Courier New', monospace;
   padding:4px 8px; border-radius:5px;
-  box-shadow: inset 0 0 8px rgba(255,255,255,0.12),
-              0 0 10px rgba(255,215,0,0.4);
 }
 
-/* ===== CHART ===== */
+/* GRÁFICO */
 .chart-wrap {
   flex: 1;
   background: var(--panel);
@@ -157,7 +154,7 @@ header h2 {
   height: 280px;
 }
 
-/* ===== ALERTA VISUAL DE TEMPERATURA ===== */
+/* ALERTA TEMPERATURA */
 .temp-alert { animation: pulseTemp 0.8s infinite; box-shadow:0 0 28px rgba(255,0,0,0.6); }
 @keyframes pulseTemp{
   0% { background:#ff4c4c; }
@@ -165,7 +162,7 @@ header h2 {
   100% { background:#ff4c4c; }
 }
 
-/* ===== OVERLAY DE PÂNICO ===== */
+/* OVERLAY DE PÂNICO */
 @keyframes pulsePanic {
   0%   { background: rgba(255,0,0,0.85); }
   50%  { background: rgba(255,0,0,0.65); }
@@ -227,16 +224,18 @@ header h2 {
   </div>
 </div>
 
+<!-- STATUS + OPERADOR (CORRIGIDO) -->
 <div class="user-box">
   <div class="status-label">Status MQTT</div>
   <div id="mqttStatus" class="status-mqtt">Desconectado</div>
+
   <div class="user-info">
-    <img src="Cleber.jpeg" alt="Operador">
-    <div class="name">Operador: Cleber</div>
+    <img id="userPhoto" src="Cleber.jpeg" alt="Operador">
+    <div class="name" id="userName">Operador: Cleber</div>
   </div>
 </div>
 
-<!-- ===== OVERLAY DE PÂNICO (NOVO) ===== -->
+<!-- OVERLAY PÂNICO -->
 <div id="panicOverlay" style="
   display:none;
   position:fixed;
@@ -257,9 +256,7 @@ header h2 {
     font-size:42px;
     text-shadow:0 0 12px #000;
     font-weight:900;
-  ">
-    ⚠ EMERGÊNCIA – BOTÃO DE PÂNICO ACIONADO ⚠
-  </h1>
+  ">⚠ EMERGÊNCIA – BOTÃO DE PÂNICO ACIONADO ⚠</h1>
 </div>
 
 <script>
@@ -270,11 +267,12 @@ const segA = el('segA'), segB = el('segB');
 const dispA = el('dispA'), dispB = el('dispB');
 const tempBox = el('tempBox'), tempEl = el('temp');
 
-const azulEl = el('azul'), verdeEl = el('verde'), vermelhoEl = el('vermelho'),
-      invalidoEl = el('invalido'), totalEl = el('total');
+const azulEl = el('azul'), verdeEl = el('verde'),
+      vermelhoEl = el('vermelho'), invalidoEl = el('invalido'),
+      totalEl = el('total');
 const mqttStatusEl = el('mqttStatus');
 
-/* ========= GRÁFICO (igual ao original) ========= */
+/* ========= GRÁFICO ========= */
 const chartData={
   labels:[],
   datasets:[{
@@ -300,7 +298,7 @@ const chart=new Chart(ctx,{
   }
 });
 
-/* ========= GAUGE ORIGINAL (canvas) ========= */
+/* ========= GAUGE ========= */
 function drawGaugeImmediate(id,dispEl,value){
   const c=el(id),ctx=c.getContext('2d');
   const DPR=window.devicePixelRatio||1;
@@ -314,7 +312,6 @@ function drawGaugeImmediate(id,dispEl,value){
 
   ctx.clearRect(0,0,w,h);
 
-  // arco base
   ctx.beginPath();
   ctx.arc(cx,cy,r,Math.PI,0,false);
   ctx.strokeStyle="#ccc";
@@ -336,12 +333,10 @@ function drawGaugeImmediate(id,dispEl,value){
     ctx.stroke();
   }
 
-  // zonas coloridas
   zone(0,100,"#28a745");
   zone(100,400,"#f2c200");
   zone(400,1000,"#ff2e2e");
 
-  // marcações numéricas
   ctx.font="10px Arial";
   ctx.fillStyle="#000";
   ctx.textAlign="center";
@@ -364,7 +359,6 @@ function drawGaugeImmediate(id,dispEl,value){
     ctx.stroke();
   });
 
-  // ponteiro
   const a=mapValueToAngle(value||0);
   const px=cx+Math.cos(a)*(r-30),
         py=cy+Math.sin(a)*(r-30);
@@ -375,7 +369,6 @@ function drawGaugeImmediate(id,dispEl,value){
   ctx.lineWidth=3;
   ctx.stroke();
 
-  // miolo
   ctx.beginPath();
   ctx.arc(cx,cy,6,0,Math.PI*2);
   ctx.fillStyle="#111";
@@ -387,7 +380,7 @@ function drawGaugeImmediate(id,dispEl,value){
   dispEl.textContent = Math.round(value||0) + " mA";
 }
 
-/* ========= MQTT HiveMQ ========= */
+/* ========= MQTT ========= */
 const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
 const mqttPort   = 8884;
 const mqttPath   = "/mqtt";
@@ -402,56 +395,56 @@ function connectMQTT(){
   const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
   mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
 
-  mqttClient.onConnectionLost = (resp) => {
-    console.log("MQTT desconectado:", resp.errorMessage);
+  mqttClient.onConnectionLost = () => {
     mqttStatusEl.textContent = "Desconectado";
     mqttStatusEl.style.background = "#b91d1d";
     setTimeout(connectMQTT, 3000);
   };
 
   mqttClient.onMessageArrived = (message) => {
-    try{
-      const d = JSON.parse(message.payloadString);
-      updateUI(d);
-    }catch(e){
-      console.error("Erro JSON:", e);
-    }
+    try{ updateUI(JSON.parse(message.payloadString)); }
+    catch(e){ console.error("Erro JSON:", e); }
   };
 
   mqttClient.connect({
-    useSSL:true,
-    userName:mqttUser,
-    password:mqttPass,
-    timeout:10,
+    useSSL:true, userName:mqttUser, password:mqttPass, timeout:10,
     onSuccess:()=>{
+      mqttClient.subscribe(mqttTopic);
       mqttStatusEl.textContent = "Conectado";
       mqttStatusEl.style.background = "#177a2f";
-      mqttClient.subscribe(mqttTopic);
     },
-    onFailure:(err)=>{
-      console.error("Falha MQTT:", err.errorMessage);
+    onFailure:()=>{
       mqttStatusEl.textContent = "Falha";
       mqttStatusEl.style.background = "#b91d1d";
-      setTimeout(connectMQTT, 5000);
+      setTimeout(connectMQTT,5000);
     }
   });
 }
 
-/* ========= CONTROLE DO OVERLAY DE PÂNICO (NOVO) ========= */
-function setPanicOverlay(estado) {
-  const ov = document.getElementById("panicOverlay");
-  ov.style.display = estado ? "flex" : "none";
+/* ========= PÂNICO ========= */
+function setPanicOverlay(estado){
+  document.getElementById("panicOverlay").style.display = estado ? "flex" : "none";
 }
 
-/* ========= ATUALIZA TELA COM DADOS DO ESP ========= */
+/* ========= UPDATE UI (CORRIGIDO) ========= */
 function updateUI(d){
 
-  // === ALERTA DE PÂNICO (NOVO) ===
+  /* === USUÁRIO AUTENTICADO (NOVO) === */
+  if (d.usuario && d.usuario !== "") {
+
+    document.getElementById("userName").textContent =
+      "Operador: " + d.usuario;
+
+    const foto = d.usuario + ".jpeg";
+    document.getElementById("userPhoto").src = foto;
+  }
+
+  /* === PÂNICO === */
   if (typeof d.panico !== "undefined") {
     setPanicOverlay(d.panico === true);
   }
 
-  // temperatura
+  /* === Temperatura === */
   if(typeof d.temperatura === "number"){
     tempEl.textContent = d.temperatura.toFixed(1)+" °C";
 
@@ -461,53 +454,38 @@ function updateUI(d){
       chartData.labels.shift();
       chartData.datasets[0].data.shift();
     }
-    chart.update();
 
+    if (d.temperatura >= 50) {
+      tempBox.classList.add("temp-alert");
+      tempEl.style.color = "#fff200";
+    } else {
+      tempBox.classList.remove("temp-alert");
+      tempEl.style.color = "#c62828";
+    }
 
-
-
-
-
-
-
-if (d.temperatura >= 50) {
-  tempBox.classList.add("temp-alert");
-  tempEl.style.color = "#fff200";
-  chartData.datasets[0].borderColor = "#ff2e2e";
-  chartData.datasets[0].backgroundColor = "rgba(255,0,0,0.15)";
-} else {
-  tempBox.classList.remove("temp-alert");
-  tempEl.style.color = "#c62828";
-  chartData.datasets[0].borderColor = "#f2c200";
-  chartData.datasets[0].backgroundColor = "rgba(242,194,0,0.15)";
-}
-
-chart.update('none'); // Atualiza imediatamente a visualização
-
-
-
+    chart.update('none');
   }
 
-  // contadores
+  /* === Contadores === */
   if("azul" in d)      azulEl.textContent      = d.azul;
   if("verde" in d)     verdeEl.textContent     = d.verde;
   if("vermelho" in d)  vermelhoEl.textContent  = d.vermelho;
   if("invalido" in d)  invalidoEl.textContent  = d.invalido;
   if("total" in d)     totalEl.textContent     = d.total;
 
-  // tensões
+  /* === Tensões === */
   if(typeof d.tensaoA === "number") segA.textContent = d.tensaoA.toFixed(1)+" V";
   else segA.textContent="--.- V";
 
   if(typeof d.tensaoB === "number") segB.textContent = d.tensaoB.toFixed(1)+" V";
   else segB.textContent="--.- V";
 
-  // correntes
+  /* === Correntes === */
   drawGaugeImmediate("gaugeA", dispA, d.correnteA || 0);
   drawGaugeImmediate("gaugeB", dispB, d.correnteB || 0);
 }
 
-/* inicia gauges e conecta MQTT */
+/* iniciar */
 drawGaugeImmediate("gaugeA", dispA, 0);
 drawGaugeImmediate("gaugeB", dispB, 0);
 connectMQTT();
