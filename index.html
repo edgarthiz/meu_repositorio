@@ -19,7 +19,9 @@
   --text:#ffffff;
   --danger:#ff2e2e;
 }
+
 *{box-sizing:border-box;margin:0;padding:0}
+
 body {
   background: var(--bg);
   font-family: "Segoe UI", Roboto, Arial, sans-serif;
@@ -28,6 +30,7 @@ body {
   justify-content: center;
   padding: 20px;
 }
+
 .container { width:95%; max-width:1280px; }
 
 /* ===== CABEÇALHO ===== */
@@ -63,6 +66,7 @@ header h2 {
   box-shadow: 0 6px 18px rgba(0,0,0,0.5);
   min-width: 110px; text-align:center;
 }
+
 .user-info {
   display:flex; align-items:center; gap:10px;
   background:#1b1c1e; border-radius:10px; padding:8px 10px;
@@ -113,12 +117,14 @@ header h2 {
 /* ===== INSTRUMENTOS ===== */
 .instrument-wrapper { display:flex; flex-direction:column; align-items:center; gap:6px; width:260px; }
 .instrument-label { font-weight:700; color:#ccc; text-transform:uppercase; margin-bottom:6px; text-align:center; }
+
 .instrument {
   width:100%;
   background:var(--panel); border-radius:12px; padding:12px; text-align:center;
   box-shadow:0 6px 18px rgba(0,0,0,0.6);
   display:flex; flex-direction:column; align-items:center; gap:8px;
 }
+
 .seg7{
   background:#000; color:var(--accent); font-family:'Courier New', monospace; font-size:28px;
   font-weight:800; border-radius:8px; padding:10px 0; width:86%;
@@ -126,7 +132,6 @@ header h2 {
 }
 .unit{ color:#ddd; font-weight:700; font-size:13px; }
 
-/* ===== GAUGE ===== */
 .gauge-container{
   position:relative;
   width:86%;
@@ -157,7 +162,7 @@ header h2 {
   height: 280px;
 }
 
-/* ===== ALERTA VISUAL DE TEMPERATURA ===== */
+/* ===== ALERTA TEMPERATURA ===== */
 .temp-alert { animation: pulseTemp 0.8s infinite; box-shadow:0 0 28px rgba(255,0,0,0.6); }
 @keyframes pulseTemp{
   0% { background:#ff4c4c; }
@@ -227,16 +232,43 @@ header h2 {
   </div>
 </div>
 
-<!-- ============ USER BOX CORRIGIDA ============ -->
+<!-- ===== USER BOX (ATUALIZADO) ===== -->
 <div class="user-box">
   <div class="status-label">Status MQTT</div>
   <div id="mqttStatus" class="status-mqtt">Desconectado</div>
 
   <div class="user-info">
-    <img id="userPhoto" 
-         src="https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg">
+    <img id="userPhoto"
+         src="https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg"
+         alt="Operador">
     <div class="name" id="userName">Operador: Visitante</div>
   </div>
+</div>
+
+<!-- ===== OVERLAY PÂNICO ===== -->
+<div id="panicOverlay" style="
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(255,0,0,0.85);
+  z-index:9999;
+  backdrop-filter:blur(3px);
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  animation:pulsePanic 0.8s infinite;
+">
+  <h1 style="
+    color:white;
+    font-size:42px;
+    text-shadow:0 0 12px #000;
+    font-weight:900;
+  ">
+    ⚠ EMERGÊNCIA – BOTÃO DE PÂNICO ACIONADO ⚠
+  </h1>
 </div>
 
 <script>
@@ -251,7 +283,10 @@ const azulEl = el('azul'), verdeEl = el('verde'), vermelhoEl = el('vermelho'),
       invalidoEl = el('invalido'), totalEl = el('total');
 const mqttStatusEl = el('mqttStatus');
 
-/* ========= SISTEMA DE USUÁRIOS ========= */
+const userNameEl = document.getElementById("userName");
+const userPhotoEl = document.getElementById("userPhoto");
+
+/* ========= SISTEMA DE USUÁRIO ========= */
 const defaultUser = {
   nome: "Visitante",
   foto: "https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg"
@@ -264,14 +299,11 @@ const users = {
 
 let currentUser = "";
 
-const userNameEl = el("userName");
-const userPhotoEl = el("userPhoto");
-
-function updateUser(nome){
+function updateUser(nome) {
   if (!nome || nome.trim() === "") {
-    currentUser = "";
     userNameEl.textContent = "Operador: " + defaultUser.nome;
     userPhotoEl.src = defaultUser.foto;
+    currentUser = "";
     return;
   }
 
@@ -288,6 +320,12 @@ function updateUser(nome){
   }
 }
 
+/* ========= PÂNICO ========= */
+function setPanicOverlay(estado) {
+  const ov = document.getElementById("panicOverlay");
+  ov.style.display = estado ? "flex" : "none";
+}
+
 /* ========= GRÁFICO ========= */
 const chartData={
   labels:[],
@@ -300,6 +338,7 @@ const chartData={
     fill:true
   }]
 };
+
 const chart=new Chart(ctx,{
   type:"line",
   data:chartData,
@@ -314,7 +353,7 @@ const chart=new Chart(ctx,{
   }
 });
 
-/* ========= GAUGE ORIGINAL ========= */
+/* ========= GAUGE ========= */
 function drawGaugeImmediate(id,dispEl,value){
   const c=el(id),ctx=c.getContext('2d');
   const DPR=window.devicePixelRatio||1;
@@ -328,7 +367,6 @@ function drawGaugeImmediate(id,dispEl,value){
 
   ctx.clearRect(0,0,w,h);
 
-  // arco base
   ctx.beginPath();
   ctx.arc(cx,cy,r,Math.PI,0,false);
   ctx.strokeStyle="#ccc";
@@ -350,12 +388,10 @@ function drawGaugeImmediate(id,dispEl,value){
     ctx.stroke();
   }
 
-  // zonas coloridas
   zone(0,100,"#28a745");
   zone(100,400,"#f2c200");
   zone(400,1000,"#ff2e2e");
 
-  // marcações numéricas
   ctx.font="10px Arial";
   ctx.fillStyle="#000";
   ctx.textAlign="center";
@@ -378,7 +414,6 @@ function drawGaugeImmediate(id,dispEl,value){
     ctx.stroke();
   });
 
-  // ponteiro
   const a=mapValueToAngle(value||0);
   const px=cx+Math.cos(a)*(r-30),
         py=cy+Math.sin(a)*(r-30);
@@ -389,7 +424,6 @@ function drawGaugeImmediate(id,dispEl,value){
   ctx.lineWidth=3;
   ctx.stroke();
 
-  // miolo
   ctx.beginPath();
   ctx.arc(cx,cy,6,0,Math.PI*2);
   ctx.fillStyle="#111";
@@ -401,7 +435,7 @@ function drawGaugeImmediate(id,dispEl,value){
   dispEl.textContent = Math.round(value||0) + " mA";
 }
 
-/* ========= MQTT HiveMQ ========= */
+/* ========= MQTT ========= */
 const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
 const mqttPort   = 8884;
 const mqttPath   = "/mqtt";
@@ -449,12 +483,15 @@ function connectMQTT(){
   });
 }
 
-/* ========= ATUALIZA TELA ========= */
+/* ========= UPDATE UI PRINCIPAL ========= */
 function updateUI(d){
 
-  updateUser(d.usuario); // *** CORAÇÃO DO SISTEMA DE USUÁRIOS ***
+  updateUser(d.usuario);
 
-  // temperatura
+  if ("panico" in d) {
+    setPanicOverlay(d.panico === true);
+  }
+
   if(typeof d.temperatura === "number"){
     tempEl.textContent = d.temperatura.toFixed(1)+" °C";
 
@@ -464,7 +501,6 @@ function updateUI(d){
       chartData.labels.shift();
       chartData.datasets[0].data.shift();
     }
-    chart.update();
 
     if (d.temperatura >= 50) {
       tempBox.classList.add("temp-alert");
@@ -477,33 +513,29 @@ function updateUI(d){
       chartData.datasets[0].borderColor = "#f2c200";
       chartData.datasets[0].backgroundColor = "rgba(242,194,0,0.15)";
     }
+
     chart.update('none');
   }
 
-  // contadores
-  azulEl.textContent = d.azul;
-  verdeEl.textContent = d.verde;
-  vermelhoEl.textContent = d.vermelho;
-  invalidoEl.textContent = d.invalido;
-  totalEl.textContent = d.total;
+  if("azul" in d)      azulEl.textContent      = d.azul;
+  if("verde" in d)     verdeEl.textContent     = d.verde;
+  if("vermelho" in d)  vermelhoEl.textContent  = d.vermelho;
+  if("invalido" in d)  invalidoEl.textContent  = d.invalido;
+  if("total" in d)     totalEl.textContent     = d.total;
 
-  // tensões
   if(typeof d.tensaoA === "number") segA.textContent = d.tensaoA.toFixed(1)+" V";
   else segA.textContent="--.- V";
 
   if(typeof d.tensaoB === "number") segB.textContent = d.tensaoB.toFixed(1)+" V";
   else segB.textContent="--.- V";
 
-  // correntes
   drawGaugeImmediate("gaugeA", dispA, d.correnteA || 0);
   drawGaugeImmediate("gaugeB", dispB, d.correnteB || 0);
 }
 
-/* inicia gauges e conecta MQTT */
 drawGaugeImmediate("gaugeA", dispA, 0);
 drawGaugeImmediate("gaugeB", dispB, 0);
 connectMQTT();
-
 </script>
 
 </body>
