@@ -5,16 +5,19 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>SMART ESTEIRA - Painel de Monitoramento Remoto</title>
 
+<!-- Chart.js para o gráfico -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Paho MQTT (WebSocket) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
 
 <style>
-/* ======== ESTILOS ORIGINAIS (mantidos) ======== */
 :root {
   --bg:#0f1112;
   --panel:#18191b;
   --accent:#f2c200;
   --text:#ffffff;
+  --danger:#ff2e2e;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body {
@@ -27,25 +30,38 @@ body {
 }
 .container { width:95%; max-width:1280px; }
 
-header { text-align: center; margin-bottom:10px; }
+/* ===== CABEÇALHO ===== */
+header { text-align: center; margin-bottom: 10px; }
 header h1 {
-  color:#00d1ff; font-size:40px; margin:0;
-  text-shadow:0 0 20px #00d1ff;
+  color: #00d1ff; font-size: 40px; margin: 0;
+  text-shadow: 0 0 20px #00d1ff;
 }
 header h2 {
-  color:#00d1ff; font-size:18px; margin:6px 0 16px 0;
-  text-shadow:0 0 15px #00d1ff;
+  color: #00d1ff; font-size: 18px; margin: 6px 0 16px 0;
+  text-shadow: 0 0 15px #00d1ff;
 }
 
-/* ==== USER BOX ==== */
+/* ===== STATUS E USUÁRIO ===== */
 .user-box {
-  position: fixed; top: 18px; right: 18px;
-  display:flex; flex-direction:column; gap:8px; align-items:center;
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 50;
 }
+.status-label { font-size: 13px; color:#ccc; font-weight:700; }
 .status-mqtt {
-  padding:6px 14px; border-radius:8px;
-  font-weight:700; font-size:13px;
-  background:#b91d1d; color:#fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  background: #b91d1d;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  min-width: 110px; text-align:center;
 }
 .user-info {
   display:flex; align-items:center; gap:10px;
@@ -53,50 +69,110 @@ header h2 {
   border:2px solid rgba(255,255,255,0.06);
   box-shadow:0 6px 14px rgba(0,0,0,0.5);
 }
-.user-info img { width:48px; height:48px; border-radius:50%; object-fit:cover; }
-.user-info .name { font-weight:700; font-size:14px; color:#fff; }
+.user-info img{ width:48px; height:48px; border-radius:50%; object-fit:cover; }
+.user-info .name{ font-weight:700; font-size:14px; color:#fff; }
 
-/* ==== CONTADORES ==== */
-.counters { display:flex; justify-content:center; gap:12px; margin-bottom:12px; }
-.counter {
+/* ===== CONTADORES ===== */
+.counters {
+  display:flex; justify-content:center; gap:12px; margin-bottom:12px;
+}
+.counter{
   min-width:120px; text-align:center; border-radius:10px; padding:10px 8px;
-  font-weight:700; box-shadow:0 0 10px rgba(255,255,255,0.06); border:2px solid #fff;
+  font-weight:700; color:#fff; box-shadow:0 0 10px rgba(255,255,255,0.06); border:2px solid #fff;
 }
-.blue{ background:#1677ff } .green{ background:#21893a }
-.red{ background:#b91d1d } .black{ background:#000 } .gray{ background:#555 }
+.counter.blue{background:#1677ff}
+.counter.green{background:#21893a}
+.counter.red{background:#b91d1d}
+.counter.black{background:#000}
+.counter.gray{background:#555}
 
-/* ==== TEMPERATURA ==== */
-.temp-box {
-  background:var(--accent); color:#111; padding:10px 20px;
-  border-radius:12px; text-align:center; width:fit-content; margin:0 auto 10px auto;
+/* ===== TEMPERATURA ===== */
+.temp-box{
+  background:var(--accent);
+  color:#111;
+  padding:10px 20px;
+  border-radius:12px;
+  text-align:center;
+  box-shadow:0 8px 26px rgba(242,194,0,0.25);
+  width:fit-content;
+  margin: 0 auto 10px auto;
+  transition: all .25s ease;
 }
-.temp-box .value { color:#c62828; font-size:22px; font-weight:900; }
+.temp-box .label{ font-weight:800; font-size:14px; }
+.temp-box .value{ color:#c62828; font-weight:900; font-size:22px; margin-top:6px; transition: color .2s ease; }
 
-/* ==== TELA PRINCIPAL ==== */
+/* ===== MAIN ROW ===== */
 .main-row {
-  display:flex; justify-content:center; align-items:flex-end; gap:20px;
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+  gap:20px;
+  margin-top: 10px;
 }
 
-/* ==== GAUGE ==== */
+/* ===== INSTRUMENTOS ===== */
+.instrument-wrapper { display:flex; flex-direction:column; align-items:center; gap:6px; width:260px; }
+.instrument-label { font-weight:700; color:#ccc; text-transform:uppercase; margin-bottom:6px; text-align:center; }
+.instrument {
+  width:100%;
+  background:var(--panel); border-radius:12px; padding:12px; text-align:center;
+  box-shadow:0 6px 18px rgba(0,0,0,0.6);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.seg7{
+  background:#000; color:var(--accent); font-family:'Courier New', monospace; font-size:28px;
+  font-weight:800; border-radius:8px; padding:10px 0; width:86%;
+  box-shadow: inset 0 -6px 18px rgba(0,0,0,0.6);
+}
+.unit{ color:#ddd; font-weight:700; font-size:13px; }
+
+/* ===== GAUGE ===== */
 .gauge-container{
-  position:relative; width:86%; height:140px;
-  background:#fff; border-radius:8px; padding:6px;
+  position:relative;
+  width:86%;
+  height:140px;
+  background:#fff;
+  border-radius:8px;
+  padding:6px;
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.25), 0 6px 12px rgba(0,0,0,0.4);
 }
 .gauge{ width:100%; height:100%; display:block; }
 .gauge-display{
   position:absolute; top:6px; left:50%; transform:translateX(-50%);
   background:#000; color:var(--accent);
-  font-size:16px; padding:4px 8px; border-radius:5px;
+  font-size:16px;
+  font-family:'Courier New', monospace;
+  padding:4px 8px; border-radius:5px;
+  box-shadow: inset 0 0 8px rgba(255,255,255,0.12),
+              0 0 10px rgba(255,215,0,0.4);
 }
 
-/* ==== GRÁFICO ==== */
+/* ===== CHART ===== */
 .chart-wrap {
-  flex:1; background:var(--panel); border-radius:12px;
-  padding:12px; box-shadow:0 8px 24px rgba(0,0,0,0.6); height:280px;
+  flex: 1;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  height: 280px;
+}
+
+/* ===== ALERTA VISUAL DE TEMPERATURA ===== */
+.temp-alert { animation: pulseTemp 0.8s infinite; box-shadow:0 0 28px rgba(255,0,0,0.6); }
+@keyframes pulseTemp{
+  0% { background:#ff4c4c; }
+  50% { background:#ff1c1c; }
+  100% { background:#ff4c4c; }
+}
+
+/* ===== OVERLAY DE PÂNICO ===== */
+@keyframes pulsePanic {
+  0%   { background: rgba(255,0,0,0.85); }
+  50%  { background: rgba(255,0,0,0.65); }
+  100% { background: rgba(255,0,0,0.85); }
 }
 </style>
 </head>
-
 <body>
 
 <div class="container">
@@ -151,17 +227,31 @@ header h2 {
   </div>
 </div>
 
-<!-- ==== USER BOX (DINÂMICA) ==== -->
+<!-- ============ USER BOX CORRIGIDA ============ -->
 <div class="user-box">
+  <div class="status-label">Status MQTT</div>
   <div id="mqttStatus" class="status-mqtt">Desconectado</div>
+
   <div class="user-info">
-    <img id="userPhoto" src="https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg">
+    <img id="userPhoto" 
+         src="https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg">
     <div class="name" id="userName">Operador: Visitante</div>
   </div>
 </div>
 
 <script>
-/* ==== PRESETS DO USUÁRIO ==== */
+/* ========= ELEMENTOS ========= */
+const el = id => document.getElementById(id);
+const ctx  = el('tempChart').getContext('2d');
+const segA = el('segA'), segB = el('segB');
+const dispA = el('dispA'), dispB = el('dispB');
+const tempBox = el('tempBox'), tempEl = el('temp');
+
+const azulEl = el('azul'), verdeEl = el('verde'), vermelhoEl = el('vermelho'),
+      invalidoEl = el('invalido'), totalEl = el('total');
+const mqttStatusEl = el('mqttStatus');
+
+/* ========= SISTEMA DE USUÁRIOS ========= */
 const defaultUser = {
   nome: "Visitante",
   foto: "https://raw.githubusercontent.com/edgarthiz/meu_repositorio/main/default.jpg"
@@ -172,15 +262,12 @@ const users = {
   "Cleber": { foto: "Cleber.jpeg" }
 };
 
-let currentUser = "";  // guarda o último usuário válido
+let currentUser = "";
 
-/* ==== ELEMENTOS ==== */
-const el = id => document.getElementById(id);
 const userNameEl = el("userName");
 const userPhotoEl = el("userPhoto");
 
-/* ==== FUNÇÃO PARA ATUALIZAR USUÁRIO ==== */
-function updateUser(nome) {
+function updateUser(nome){
   if (!nome || nome.trim() === "") {
     currentUser = "";
     userNameEl.textContent = "Operador: " + defaultUser.nome;
@@ -188,7 +275,6 @@ function updateUser(nome) {
     return;
   }
 
-  // se usuário mudou, atualiza
   if (nome !== currentUser) {
     currentUser = nome;
 
@@ -202,84 +288,222 @@ function updateUser(nome) {
   }
 }
 
-/* ==== MQTT ==== */
-const mqttHost="a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
-const mqttPort=8884;
-const mqttPath="/mqtt";
-const mqttUser="edgar_thiz";
-const mqttPass="Rg_1065736711@@";
-const mqttTopic="smartesteira/dados";
+/* ========= GRÁFICO ========= */
+const chartData={
+  labels:[],
+  datasets:[{
+    label:"Temperatura (°C)",
+    data:[],
+    borderColor:"#f2c200",
+    backgroundColor:"rgba(242,194,0,0.1)",
+    tension:.2,
+    fill:true
+  }]
+};
+const chart=new Chart(ctx,{
+  type:"line",
+  data:chartData,
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    scales:{
+      x:{ticks:{color:"#ccc"}},
+      y:{ticks:{color:"#ccc"},min:0,max:70}
+    },
+    plugins:{legend:{labels:{color:"#f2c200"}}}
+  }
+});
 
-let mqttClient=null;
-
-function connectMQTT(){
-  mqttClient=new Paho.MQTT.Client(`wss://${mqttHost}:${mqttPort}${mqttPath}`, 
-                                  "webClient_"+Math.random().toString(16).substr(2));
-
-  mqttClient.onConnectionLost = ()=> el("mqttStatus").textContent="Desconectado";
-  mqttClient.onMessageArrived = msg => {
-    try {
-      const d = JSON.parse(msg.payloadString);
-      processData(d);
-    } catch(e) { console.error(e); }
-  };
-
-  mqttClient.connect({
-    useSSL:true, userName:mqttUser, password:mqttPass,
-    onSuccess:()=>{
-      el("mqttStatus").textContent="Conectado";
-      mqttClient.subscribe(mqttTopic);
-    }
-  });
-}
-
-/* ==== PROCESSA DADOS ==== */
-function processData(d){
-  updateUser(d.usuario);
-
-  el("azul").textContent = d.azul;
-  el("verde").textContent = d.verde;
-  el("vermelho").textContent = d.vermelho;
-  el("invalido").textContent = d.invalido;
-  el("total").textContent = d.total;
-
-  el("segA").textContent = d.tensaoA.toFixed(1)+" V";
-  el("segB").textContent = d.tensaoB.toFixed(1)+" V";
-
-  drawGaugeImmediate("gaugeA", el("dispA"), d.correnteA);
-  drawGaugeImmediate("gaugeB", el("dispB"), d.correnteB);
-
-  el("temp").textContent = d.temperatura.toFixed(1)+" °C";
-}
-
+/* ========= GAUGE ORIGINAL ========= */
 function drawGaugeImmediate(id,dispEl,value){
-  const c=el(id),ctx=c.getContext("2d");
+  const c=el(id),ctx=c.getContext('2d');
   const DPR=window.devicePixelRatio||1;
   c.width=c.clientWidth*DPR;
   c.height=c.clientHeight*DPR;
   ctx.setTransform(DPR,0,0,DPR,0,0);
 
-  const w=c.clientWidth,h=c.clientHeight,cx=w/2,cy=h*0.9;
-  const r=Math.min(w,h*2)/2.3;
+  const w=c.clientWidth,h=c.clientHeight,
+        cx=w/2,cy=h*0.9,
+        r=Math.min(w,h*2)/2.3;
 
   ctx.clearRect(0,0,w,h);
-  ctx.beginPath();
-  ctx.arc(cx,cy,r,Math.PI,0);
-  ctx.strokeStyle="#ccc"; ctx.lineWidth=2; ctx.stroke();
 
-  function map(v){
-    v=Math.max(0,Math.min(1000,v));
-    if(v<=100) return Math.PI+(Math.PI*(v/100)*0.5);
-    if(v<=400) return Math.PI+Math.PI*0.5+Math.PI*0.25*((v-100)/300);
+  // arco base
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,Math.PI,0,false);
+  ctx.strokeStyle="#ccc";
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  function mapValueToAngle(v){
+    v = Math.max(0,Math.min(1000,v));
+    if(v<=100)  return Math.PI+(Math.PI*(v/100)*0.5);
+    if(v<=400)  return Math.PI+Math.PI*0.5+Math.PI*0.25*((v-100)/300);
     return Math.PI+Math.PI*0.75+Math.PI*0.25*((v-400)/600);
   }
 
-  dispEl.textContent = Math.round(value)+" mA";
+  function zone(s,e,color){
+    ctx.beginPath();
+    ctx.arc(cx,cy,r-10,mapValueToAngle(s),mapValueToAngle(e),false);
+    ctx.lineWidth=10;
+    ctx.strokeStyle=color;
+    ctx.stroke();
+  }
+
+  // zonas coloridas
+  zone(0,100,"#28a745");
+  zone(100,400,"#f2c200");
+  zone(400,1000,"#ff2e2e");
+
+  // marcações numéricas
+  ctx.font="10px Arial";
+  ctx.fillStyle="#000";
+  ctx.textAlign="center";
+  const marks=[0,20,40,60,80,100,200,300,400,600,800,1000];
+  marks.forEach(v=>{
+    const a=mapValueToAngle(v);
+    const x=cx+Math.cos(a)*(r-24);
+    const y=cy+Math.sin(a)*(r-24)+4;
+    ctx.fillText(v,x,y);
+
+    const x1=cx+Math.cos(a)*(r-6),
+          y1=cy+Math.sin(a)*(r-6),
+          x2=cx+Math.cos(a)*(r-12),
+          y2=cy+Math.sin(a)*(r-12);
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.strokeStyle="#444";
+    ctx.lineWidth=1.2;
+    ctx.stroke();
+  });
+
+  // ponteiro
+  const a=mapValueToAngle(value||0);
+  const px=cx+Math.cos(a)*(r-30),
+        py=cy+Math.sin(a)*(r-30);
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(px,py);
+  ctx.strokeStyle="#c62828";
+  ctx.lineWidth=3;
+  ctx.stroke();
+
+  // miolo
+  ctx.beginPath();
+  ctx.arc(cx,cy,6,0,Math.PI*2);
+  ctx.fillStyle="#111";
+  ctx.fill();
+  ctx.lineWidth=2;
+  ctx.strokeStyle="#fff";
+  ctx.stroke();
+
+  dispEl.textContent = Math.round(value||0) + " mA";
 }
 
+/* ========= MQTT HiveMQ ========= */
+const mqttHost   = "a3b0a2c2c0034765b38f3d7cff40fc25.s1.eu.hivemq.cloud";
+const mqttPort   = 8884;
+const mqttPath   = "/mqtt";
+const mqttUser   = "edgar_thiz";
+const mqttPass   = "Rg_1065736711@@";
+const mqttTopic  = "smartesteira/dados";
+
+let mqttClient = null;
+const mqttClientId = "smartEsteiraWeb_" + Math.random().toString(16).substr(2,8);
+
+function connectMQTT(){
+  const wsUrl = `wss://${mqttHost}:${mqttPort}${mqttPath}`;
+  mqttClient = new Paho.MQTT.Client(wsUrl, mqttClientId);
+
+  mqttClient.onConnectionLost = (resp) => {
+    mqttStatusEl.textContent = "Desconectado";
+    mqttStatusEl.style.background = "#b91d1d";
+    setTimeout(connectMQTT, 3000);
+  };
+
+  mqttClient.onMessageArrived = (message) => {
+    try{
+      const d = JSON.parse(message.payloadString);
+      updateUI(d);
+    }catch(e){
+      console.error("Erro JSON:", e);
+    }
+  };
+
+  mqttClient.connect({
+    useSSL:true,
+    userName:mqttUser,
+    password:mqttPass,
+    timeout:10,
+    onSuccess:()=>{
+      mqttStatusEl.textContent = "Conectado";
+      mqttStatusEl.style.background = "#177a2f";
+      mqttClient.subscribe(mqttTopic);
+    },
+    onFailure:(err)=>{
+      mqttStatusEl.textContent = "Falha";
+      mqttStatusEl.style.background = "#b91d1d";
+      setTimeout(connectMQTT, 5000);
+    }
+  });
+}
+
+/* ========= ATUALIZA TELA ========= */
+function updateUI(d){
+
+  updateUser(d.usuario); // *** CORAÇÃO DO SISTEMA DE USUÁRIOS ***
+
+  // temperatura
+  if(typeof d.temperatura === "number"){
+    tempEl.textContent = d.temperatura.toFixed(1)+" °C";
+
+    chartData.labels.push(new Date().toLocaleTimeString());
+    chartData.datasets[0].data.push(d.temperatura);
+    if(chartData.labels.length>15){
+      chartData.labels.shift();
+      chartData.datasets[0].data.shift();
+    }
+    chart.update();
+
+    if (d.temperatura >= 50) {
+      tempBox.classList.add("temp-alert");
+      tempEl.style.color = "#fff200";
+      chartData.datasets[0].borderColor = "#ff2e2e";
+      chartData.datasets[0].backgroundColor = "rgba(255,0,0,0.15)";
+    } else {
+      tempBox.classList.remove("temp-alert");
+      tempEl.style.color = "#c62828";
+      chartData.datasets[0].borderColor = "#f2c200";
+      chartData.datasets[0].backgroundColor = "rgba(242,194,0,0.15)";
+    }
+    chart.update('none');
+  }
+
+  // contadores
+  azulEl.textContent = d.azul;
+  verdeEl.textContent = d.verde;
+  vermelhoEl.textContent = d.vermelho;
+  invalidoEl.textContent = d.invalido;
+  totalEl.textContent = d.total;
+
+  // tensões
+  if(typeof d.tensaoA === "number") segA.textContent = d.tensaoA.toFixed(1)+" V";
+  else segA.textContent="--.- V";
+
+  if(typeof d.tensaoB === "number") segB.textContent = d.tensaoB.toFixed(1)+" V";
+  else segB.textContent="--.- V";
+
+  // correntes
+  drawGaugeImmediate("gaugeA", dispA, d.correnteA || 0);
+  drawGaugeImmediate("gaugeB", dispB, d.correnteB || 0);
+}
+
+/* inicia gauges e conecta MQTT */
+drawGaugeImmediate("gaugeA", dispA, 0);
+drawGaugeImmediate("gaugeB", dispB, 0);
 connectMQTT();
-drawGaugeImmediate("gaugeA", el("dispA"), 0);
-drawGaugeImmediate("gaugeB", el("dispB"), 0);
+
 </script>
 
 </body>
